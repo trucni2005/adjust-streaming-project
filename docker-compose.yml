@@ -203,3 +203,58 @@ services:
       - postgres
     networks:
       - kafka-net
+
+  spark-master:
+    image: apache/spark:latest
+    hostname: spark-master
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.master.Master
+    networks:
+      - kafka-net
+    ports:
+      - "7070:8080"
+      - "7077:7077"
+    volumes:
+      - ./app:/app
+      - ./data:/data
+  
+  spark-worker-1:
+    image: apache/spark:latest
+    hostname: spark-worker-1
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8091:8091"
+    networks:
+      - kafka-net
+    environment:
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2g
+    volumes:
+      - ./app:/app
+      - ./data:/data
+  
+  spark-worker-2:
+    image: apache/spark:latest
+    hostname: spark-worker-2
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8092:8091"
+    networks:
+      - kafka-net
+    environment:
+      SPARK_WORKER_CORES: 2
+      SPARK_WORKER_MEMORY: 2g
+    volumes:
+      - ./app:/app
+      - ./data:/data
