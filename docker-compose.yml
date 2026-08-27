@@ -1,0 +1,183 @@
+version: '3.8'
+
+networks:
+  kafka-net:
+    driver: bridge
+  
+services:
+  postgres:
+    image: postgres:16
+    container_name: postgres
+    ports:
+      - 5434:5432
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    command: ["postgres", "-c", "wal_level=logical", "-c", "timezone=Asia/Ho_Chi_Minh"]
+    volumes:
+      - ./postgres/data:/var/lib/postgresql/data
+      - ./postgres/init:/docker-entrypoint-initdb.d
+    # 1. This creates an isolated network for our Kafka cluster, ensuring secure communication between containers.
+    networks:
+      - kafka-net
+
+  kafka1:
+    # Image dùng để tạo container
+    # Docker sẽ pull image này từ Docker Hub để khởi tạo container
+    image: confluentinc/cp-kafka:7.8.0
+
+    # Host name bên trong network của container - dùng khi container khác 
+    # trong cùng kafka-net cần trỏ tới container này
+    hostname: kafka1
+
+    # Tên container hiển thị khi chạy docker ps, dùng để quản lý container
+    # qua Docker CLI 
+    container_name: kafka1
+
+    ports:
+      - "9093:9093"
+      - "9092:9092"
+    
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_BROKER_ID: 1
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      # Vote Controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:9093,2@kafka2:9093,3@kafka3:9093'
+      # Listener: PLAINTEXT
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka1:9092,CONTROLLER://kafka1:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka1:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      CLUSTER_ID: '0gDt4nK2qFB0RwIyKQpS7Kl5rglxiRyEmFwvGZP3ug'
+      # 3 replication mỗi topic consumer_offset
+      KAFKA_OFFSET_TOPIC_REPLICATION_FACTOR: 3
+      # rebalance ngay lập tức
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # 3 replication mặc định cho mỗi topic thông thường
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+    volumes:
+      - ./kafka-cluster/kafka1/data:/var/lib/kafka/data
+    networks:
+      - kafka-net
+
+  kafka2:
+    # Image dùng để tạo container
+    # Docker sẽ pull image này từ Docker Hub để khởi tạo container
+    image: confluentinc/cp-kafka:7.8.0
+
+    # Host name bên trong network của container - dùng khi container khác 
+    # trong cùng kafka-net cần trỏ tới container này
+    hostname: kafka2
+
+    # Tên container hiển thị khi chạy docker ps, dùng để quản lý container
+    # qua Docker CLI 
+    container_name: kafka2
+
+    ports:
+      - "9095:9093"
+      - "9094:9092"
+    environment:
+      KAFKA_NODE_ID: 2
+      KAFKA_BROKER_ID: 2
+      KAFKA_PROCESS_ROLES: 'broker,controller'
+      # Vote Controller
+      KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:9093,2@kafka2:9093,3@kafka3:9093'
+      # Listener: PLAINTEXT
+      KAFKA_LISTENERS: 'PLAINTEXT://kafka2:9092,CONTROLLER://kafka2:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka2:9092'
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+      KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+      KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+      CLUSTER_ID: '0gDt4nK2qFB0RwIyKQpS7Kl5rglxiRyEmFwvGZP3ug'
+      # 3 replication mỗi topic consumer_offset
+      KAFKA_OFFSET_TOPIC_REPLICATION_FACTOR: 3
+      # rebalance ngay lập tức
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      # 3 replication mặc định cho mỗi topic thông thường
+      KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+      # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
+      KAFKA_MIN_INSYNC_REPLICAS: 2
+    volumes:
+      - ./kafka-cluster/kafka2/data:/var/lib/kafka/data
+    networks:
+      - kafka-net
+
+  kafka3:
+      # Image dùng để tạo container
+      # Docker sẽ pull image này từ Docker Hub để khởi tạo container
+      image: confluentinc/cp-kafka:7.8.0
+
+      # Host name bên trong network của container - dùng khi container khác 
+      # trong cùng kafka-net cần trỏ tới container này
+      hostname: kafka3
+
+      # Tên container hiển thị khi chạy docker ps, dùng để quản lý container
+      # qua Docker CLI 
+      container_name: kafka3
+
+      ports:
+        - "9097:9093"
+        - "9096:9092"
+      environment:
+        KAFKA_NODE_ID: 3
+        KAFKA_BROKER_ID: 3
+        KAFKA_PROCESS_ROLES: 'broker,controller'
+        # Vote Controller
+        KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:9093,2@kafka2:9093,3@kafka3:9093'
+        # Listener: PLAINTEXT
+        KAFKA_LISTENERS: 'PLAINTEXT://kafka3:9092,CONTROLLER://kafka3:9093'
+        KAFKA_ADVERTISED_LISTENERS: 'PLAINTEXT://kafka3:9092'
+        KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT'
+        KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+        KAFKA_INTER_BROKER_LISTENER_NAME: 'PLAINTEXT'
+        CLUSTER_ID: '0gDt4nK2qFB0RwIyKQpS7Kl5rglxiRyEmFwvGZP3ug'
+        # 3 replication mỗi topic consumer_offset
+        KAFKA_OFFSET_TOPIC_REPLICATION_FACTOR: 3
+        # rebalance ngay lập tức
+        KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+        # 3 replication mặc định cho mỗi topic thông thường
+        KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+        # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
+        KAFKA_MIN_INSYNC_REPLICAS: 2
+      volumes:
+        - ./kafka-cluster/kafka3/data:/var/lib/kafka/data
+      networks:
+        - kafka-net
+  
+  kafka-ui:
+    image: provectuslabs/kafka-ui:latest
+    container_name: kafka-cluster-ui
+    ports:
+      - "8080:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+    networks:
+      - kafka-net
+  
+  kconnect:
+    image: debezium/connect:1.9
+    container_name: kconnect
+    ports:
+      - 8083:8083
+    environment:
+      CONFIG_STORAGE_TOPIC: connect_configs
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      STATUS_STORAGE_TOPIC: connect_statuses
+      BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+      - postgres
+    
+    networks:
+      - kafka-net
