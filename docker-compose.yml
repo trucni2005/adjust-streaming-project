@@ -156,10 +156,13 @@ services:
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kconnect:8083
     depends_on:
       - kafka1
       - kafka2
       - kafka3
+      - kconnect
     networks:
       - kafka-net
   
@@ -179,5 +182,24 @@ services:
       - kafka3
       - postgres
     
+    networks:
+      - kafka-net
+  
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: simulator
+    container_name: simulator
+    ports:
+      - "8000:8000"
+    environment:
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_DATABASE=postgres
+      - PG_USER=postgres
+      - PG_PASSWORD=postgres
+    depends_on:
+      - postgres
     networks:
       - kafka-net
