@@ -1,3 +1,4 @@
 kafka-cluster/*
-postgres/data/
+clickhouse/data/*
+postgres/data/*
 __pycache__/

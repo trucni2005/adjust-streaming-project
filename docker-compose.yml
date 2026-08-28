@@ -3,7 +3,7 @@ version: '3.8'
 networks:
   kafka-net:
     driver: bridge
-  
+
 services:
   postgres:
     image: postgres:16
@@ -258,3 +258,19 @@ services:
     volumes:
       - ./app:/app
       - ./data:/data
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: clickhouse
+    ports:
+      - "9000:9000"  # Native protocol
+      - "8123:8123"  # HTTP protocol
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=pass
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - clickhouse_data:/var/lib/clickhouse
+    networks:
+      - kafka-net
