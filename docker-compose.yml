@@ -1,22 +1,23 @@
-version: '3.8'
-
 networks:
   kafka-net:
     driver: bridge
+
+volumes:
+  clickhouse:
 
 services:
   postgres:
     image: postgres:16
     container_name: postgres
     ports:
-      - 5434:5432
+      - ${PG_PORT}:5432
     environment:
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_USER=${PG_USER}
+      - POSTGRES_PASSWORD=${PG_PASSWORD}
+      - POSTGRES_DB=${PG_DATABASE}
     command: ["postgres", "-c", "wal_level=logical", "-c", "timezone=Asia/Ho_Chi_Minh"]
     volumes:
-      - ./postgres/data:/var/lib/postgresql/data
-      - ./postgres/init:/docker-entrypoint-initdb.d
+      - ./postgres:/var/lib/postgresql/data
     # 1. This creates an isolated network for our Kafka cluster, ensuring secure communication between containers.
     networks:
       - kafka-net
@@ -194,11 +195,11 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - PG_HOST=postgres
-      - PG_PORT=5432
-      - PG_DATABASE=postgres
-      - PG_USER=postgres
-      - PG_PASSWORD=postgres
+      - PG_HOST=${PG_HOST}
+      - PG_PORT=${PG_PORT}
+      - PG_DATABASE=${PG_DATABASE}
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
     depends_on:
       - postgres
     networks:
@@ -206,6 +207,7 @@ services:
 
   spark-master:
     image: apache/spark:latest
+    container_name: spark-master
     hostname: spark-master
     command: >
       /opt/spark/bin/spark-class
@@ -215,10 +217,18 @@ services:
     ports:
       - "7070:8080"
       - "7077:7077"
+    environment:
+      HOME: /tmp
+      KAFKA_CONNECTOR_PACKAGE: org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0
+      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
+      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
+      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
+      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      CLICKHOUSE_TABLE: ${CLICKHOUSE_TABLE}
     volumes:
-      - ./app:/app
-      - ./data:/data
-  
+      - ./spark/app:/app
+      - ./spark/data:/data
+
   spark-worker-1:
     image: apache/spark:latest
     hostname: spark-worker-1
@@ -235,10 +245,12 @@ services:
     environment:
       SPARK_WORKER_CORES: 2
       SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_WEBUI_PORT: 8091
+      SPARK_PUBLIC_DNS: localhost
     volumes:
-      - ./app:/app
-      - ./data:/data
-  
+      - ./spark/app:/app
+      - ./spark/data:/data
+
   spark-worker-2:
     image: apache/spark:latest
     hostname: spark-worker-2
@@ -249,15 +261,64 @@ services:
     depends_on:
       - spark-master
     ports:
-      - "8092:8091"
+      - "8092:8092"
     networks:
       - kafka-net
     environment:
       SPARK_WORKER_CORES: 2
       SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_WEBUI_PORT: 8092
+      SPARK_PUBLIC_DNS: localhost
     volumes:
-      - ./app:/app
-      - ./data:/data
+      - ./spark/app:/app
+      - ./spark/data:/data
+
+  flink-jobmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pyflink
+    ports:
+      - "8001:8081"
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        gs.create.items.conflict.check.enable: false
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    command: jobmanager
+    depends_on:
+      - kafka1
+      - kafka2
+      - kafka3
+
+    networks:
+      - kafka-net
+
+  flink-taskmanager:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: pyflink
+    depends_on:
+      - flink-jobmanager
+    command: taskmanager
+    scale: 2
+    environment:
+      - |
+        FLINK_PROPERTIES=
+        jobmanager.rpc.address: flink-jobmanager
+        taskmanager.numberOfTaskSlots: 4
+      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
+      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
+    networks:
+      - kafka-net
+
 
   clickhouse:
     image: clickhouse/clickhouse-server:24.8
@@ -267,10 +328,10 @@ services:
       - "8123:8123"  # HTTP protocol
     environment:
       - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=pass
+      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
+      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
-      - clickhouse_data:/var/lib/clickhouse
+      - clickhouse:/var/lib/clickhouse
     networks:
       - kafka-net
