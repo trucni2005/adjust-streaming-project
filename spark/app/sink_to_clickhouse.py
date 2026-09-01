@@ -12,7 +12,7 @@ CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "clickhouse")
 CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
 CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "pass")
-CLICKHOUSE_TABLE = os.getenv("CLICKHOUSE_TABLE", "ad_revenue_events")
+CLICKHOUSE_TABLE = "spark__ad_revenue_events"
 
 KAFKA_BOOTSTRAP_SERVERS = "kafka1:9092,kafka2:9092,kafka3:9092"
 KAFKA_TOPIC = "dbserver1.adjust.event__ad_revenue"

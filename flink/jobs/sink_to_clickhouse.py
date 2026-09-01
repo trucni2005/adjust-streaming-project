@@ -19,6 +19,7 @@ CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "clickhouse")
 CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
 CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
 CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "pass")
+CLICKHOUSE_TABLE = "flink__ad_revenue_events"
 
 COLUMNS = [
     "id", "created_at", "store_id", "app_version", "tracker_name",
@@ -34,7 +35,7 @@ ROW_TYPE = Types.ROW([
     Types.STRING(), Types.BIG_DEC(), Types.STRING(),
     Types.BIG_DEC(), Types.STRING(), Types.LONG(),
 ])
-INSERT_SQL = f"INSERT INTO ad_revenue_events ({', '.join(COLUMNS)}) VALUES ({', '.join('?' * len(COLUMNS))})"
+INSERT_SQL = f"INSERT INTO {CLICKHOUSE_TABLE} ({', '.join(COLUMNS)}) VALUES ({', '.join('?' * len(COLUMNS))})"
 
 
 def _to_timestamp(epoch_micros):

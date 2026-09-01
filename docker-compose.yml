@@ -10,7 +10,7 @@ services:
     image: postgres:16
     container_name: postgres
     ports:
-      - ${PG_PORT}:5432
+      - "5434:5432"
     environment:
       - POSTGRES_USER=${PG_USER}
       - POSTGRES_PASSWORD=${PG_PASSWORD}
@@ -196,7 +196,7 @@ services:
       - "8000:8000"
     environment:
       - PG_HOST=${PG_HOST}
-      - PG_PORT=${PG_PORT}
+      - PG_PORT=5432
       - PG_DATABASE=${PG_DATABASE}
       - PG_USER=${PG_USER}
       - PG_PASSWORD=${PG_PASSWORD}
@@ -217,6 +217,7 @@ services:
     ports:
       - "7070:8080"
       - "7077:7077"
+      - "4040:4040"
     environment:
       HOME: /tmp
       KAFKA_CONNECTOR_PACKAGE: org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0
@@ -224,7 +225,6 @@ services:
       CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
       CLICKHOUSE_USER: ${CLICKHOUSE_USER}
       CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
-      CLICKHOUSE_TABLE: ${CLICKHOUSE_TABLE}
     volumes:
       - ./spark/app:/app
       - ./spark/data:/data
@@ -243,8 +243,8 @@ services:
     networks:
       - kafka-net
     environment:
-      SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1g
       SPARK_WORKER_WEBUI_PORT: 8091
       SPARK_PUBLIC_DNS: localhost
     volumes:
@@ -265,8 +265,8 @@ services:
     networks:
       - kafka-net
     environment:
-      SPARK_WORKER_CORES: 2
-      SPARK_WORKER_MEMORY: 2g
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1g
       SPARK_WORKER_WEBUI_PORT: 8092
       SPARK_PUBLIC_DNS: localhost
     volumes:
@@ -294,6 +294,8 @@ services:
       - kafka1
       - kafka2
       - kafka3
+    volumes:
+      - ./flink/jobs:/opt/flink/usrlib/jobs
 
     networks:
       - kafka-net
@@ -311,7 +313,7 @@ services:
       - |
         FLINK_PROPERTIES=
         jobmanager.rpc.address: flink-jobmanager
-        taskmanager.numberOfTaskSlots: 4
+        taskmanager.numberOfTaskSlots: 2
       - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
       - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}

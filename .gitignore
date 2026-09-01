@@ -1,5 +1,5 @@
 kafka-cluster/*
-clickhouse/data/*
+clickhouse/*
 postgres/*
 __pycache__/
 spark/data/*
