@@ -95,7 +95,8 @@ df = spark.readStream \
     .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
     .option("subscribe", KAFKA_TOPIC) \
     .option("kafka.group.id", "spark-streaming-consumer") \
-    .option("startingOffsets", "earliest") \
+    .option("kafka.group.id", "spark_streaming_consumer_group") \
+    .option("failOnDataLoss", "false") \
     .load() \
     .selectExpr("CAST(value AS STRING) as value")
 
@@ -103,6 +104,7 @@ query = df.writeStream \
     .foreachBatch(write_batch_to_clickhouse) \
     .trigger(processingTime="1 minutes") \
     .option("checkpointLocation", "/data/checkpoints/sink_to_clickhouse") \
+    .option("extraOptions.kafka.commitOffsetsOnSync", "true") \
     .start()
 
 query.awaitTermination()

@@ -1,10 +1,7 @@
 networks:
   kafka-net:
     driver: bridge
-
-volumes:
-  clickhouse:
-
+    
 services:
   postgres:
     image: postgres:16
@@ -12,13 +9,29 @@ services:
     ports:
       - "5434:5432"
     environment:
-      - POSTGRES_USER=${PG_USER}
-      - POSTGRES_PASSWORD=${PG_PASSWORD}
-      - POSTGRES_DB=${PG_DATABASE}
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=postgres
     command: ["postgres", "-c", "wal_level=logical", "-c", "timezone=Asia/Ho_Chi_Minh"]
     volumes:
       - ./postgres:/var/lib/postgresql/data
     # 1. This creates an isolated network for our Kafka cluster, ensuring secure communication between containers.
+    networks:
+      - kafka-net
+
+  clickhouse:
+    image: clickhouse/clickhouse-server:24.8
+    container_name: clickhouse
+    ports:
+      - "9000:9000"  # Native protocol
+      - "8123:8123"  # HTTP protocol
+    environment:
+      - CLICKHOUSE_DB=default
+      - CLICKHOUSE_USER=default
+      - CLICKHOUSE_PASSWORD=default
+      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
+    volumes:
+      - ./clickhouse:/var/lib/clickhouse
     networks:
       - kafka-net
 
@@ -318,22 +331,5 @@ services:
       - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
       - CLICKHOUSE_USER=${CLICKHOUSE_USER}
       - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-    networks:
-      - kafka-net
-
-
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.8
-    container_name: clickhouse
-    ports:
-      - "9000:9000"  # Native protocol
-      - "8123:8123"  # HTTP protocol
-    environment:
-      - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
-    volumes:
-      - clickhouse:/var/lib/clickhouse
     networks:
       - kafka-net
