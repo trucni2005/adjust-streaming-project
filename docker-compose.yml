@@ -1,7 +1,7 @@
 networks:
   kafka-net:
     driver: bridge
-    
+
 services:
   postgres:
     image: postgres:16
@@ -14,7 +14,8 @@ services:
       - POSTGRES_DB=postgres
     command: ["postgres", "-c", "wal_level=logical", "-c", "timezone=Asia/Ho_Chi_Minh"]
     volumes:
-      - ./postgres:/var/lib/postgresql/data
+      - ./postgres-db-volumes:/var/lib/postgresql/data
+    restart: always
     # 1. This creates an isolated network for our Kafka cluster, ensuring secure communication between containers.
     networks:
       - kafka-net
@@ -31,7 +32,8 @@ services:
       - CLICKHOUSE_PASSWORD=default
       - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
     volumes:
-      - ./clickhouse:/var/lib/clickhouse
+      - ./clickhouse-db-volumes/data:/var/lib/clickhouse
+      - ./clickhouse-db-volumes/logs:/var/log/clickhouse_server
     networks:
       - kafka-net
 
@@ -74,7 +76,7 @@ services:
       # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
       KAFKA_MIN_INSYNC_REPLICAS: 2
     volumes:
-      - ./kafka-cluster/kafka1/data:/var/lib/kafka/data
+      - ./kafka-cluster-volumes/kafka1/data:/var/lib/kafka/data
     networks:
       - kafka-net
 
@@ -116,7 +118,7 @@ services:
       # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
       KAFKA_MIN_INSYNC_REPLICAS: 2
     volumes:
-      - ./kafka-cluster/kafka2/data:/var/lib/kafka/data
+      - ./kafka-cluster-volumes/kafka2/data:/var/lib/kafka/data
     networks:
       - kafka-net
 
@@ -158,15 +160,15 @@ services:
         # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
         KAFKA_MIN_INSYNC_REPLICAS: 2
       volumes:
-        - ./kafka-cluster/kafka3/data:/var/lib/kafka/data
+        - ./kafka-cluster-volumes/kafka3/data:/var/lib/kafka/data
       networks:
         - kafka-net
   
   kafka-ui:
     image: provectuslabs/kafka-ui:latest
-    container_name: kafka-cluster-ui
+    container_name: kafka-ui
     ports:
-      - "8080:8080"
+      - "8088:8080"
     environment:
       KAFKA_CLUSTERS_0_NAME: local
       KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9092,kafka3:9092

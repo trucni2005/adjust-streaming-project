@@ -106,7 +106,7 @@ def insert_ad_revenue(cur, attrs, adid):
 def fire_random_install_event():
     attrs = random_tracker_attrs()
     adid = random_id_string("adid")
-    ad_revenue_count = random.randint(0, 10)
+    ad_revenue_count = random.randint(0, 50)
 
     conn = get_connection()
     try:
@@ -139,4 +139,4 @@ async def event_loop():
             fire_random_install_event()
         except Exception as exc:
             print(f"event_loop error: {exc}")
-        await asyncio.sleep(random.uniform(0.01, 10))
+        await asyncio.sleep(random.uniform(0.001, 0.2))

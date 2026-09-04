@@ -1,6 +1,5 @@
 kafka-cluster/*
-clickhouse/*
-postgres/*
+*-volumes/*
 __pycache__/
 spark/data/*
 .env

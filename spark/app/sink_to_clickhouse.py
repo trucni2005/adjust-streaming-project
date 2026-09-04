@@ -68,8 +68,8 @@ def parse_message(value):
     }
 
 
-def write_batch_to_clickhouse(batch_df, batch_id):
-    rows = [parse_message(row.value) for row in batch_df.select("value").collect()]
+def write_partition_to_clickhouse(rows_iter):
+    rows = [parse_message(row.value) for row in rows_iter]
     rows = [row for row in rows if row is not None]
     if not rows:
         return
@@ -86,6 +86,10 @@ def write_batch_to_clickhouse(batch_df, batch_id):
         client.close()
 
 
+def write_batch_to_clickhouse(batch_df, batch_id):
+    batch_df.select("value").foreachPartition(write_partition_to_clickhouse)
+
+
 spark = SparkSession.builder \
     .appName("SinkToClickhouse") \
     .getOrCreate()
@@ -95,8 +99,6 @@ df = spark.readStream \
     .option("kafka.bootstrap.servers", KAFKA_BOOTSTRAP_SERVERS) \
     .option("subscribe", KAFKA_TOPIC) \
     .option("kafka.group.id", "spark-streaming-consumer") \
-    .option("kafka.group.id", "spark_streaming_consumer_group") \
-    .option("failOnDataLoss", "false") \
     .load() \
     .selectExpr("CAST(value AS STRING) as value")
 
@@ -104,7 +106,6 @@ query = df.writeStream \
     .foreachBatch(write_batch_to_clickhouse) \
     .trigger(processingTime="1 minutes") \
     .option("checkpointLocation", "/data/checkpoints/sink_to_clickhouse") \
-    .option("extraOptions.kafka.commitOffsetsOnSync", "true") \
     .start()
 
 query.awaitTermination()
