@@ -9,7 +9,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY simulator/main.py .
 
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # ---- pyflink ----
 FROM flink:1.19.1-scala_2.12-java11 AS pyflink

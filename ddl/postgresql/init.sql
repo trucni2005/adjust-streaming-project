@@ -1,57 +1,61 @@
 CREATE SCHEMA IF NOT EXISTS adjust;
 
-CREATE TABLE adjust.event__install (
+CREATE TABLE adjust.event (
     id SERIAL PRIMARY KEY,
+    activity_kind VARCHAR(50),
     created_at TIMESTAMP,
+    app_token VARCHAR(255),
     store_id VARCHAR(255),
+    app_name VARCHAR(255),
     app_version VARCHAR(255),
-    tracker_name VARCHAR(255),
-    network_name VARCHAR(255),
-    campaign_name VARCHAR(255),
-    adgroup_name VARCHAR(255),
-    creative_name VARCHAR(255),
+    platform VARCHAR(50),
+    environment VARCHAR(50),
+    sdk_version VARCHAR(50),
+    os_name VARCHAR(50),
+    os_version VARCHAR(50),
+    device_type VARCHAR(50),
+    device_model VARCHAR(255),
+    language VARCHAR(10),
     country VARCHAR(255),
-    adid VARCHAR(255)
-);
-
-ALTER TABLE adjust.event__install REPLICA IDENTITY FULL;
-
-CREATE TABLE adjust.event__ad_revenue (
-    id SERIAL PRIMARY KEY,
-    created_at TIMESTAMP,
-    store_id VARCHAR(255),
-    app_version VARCHAR(255),
-    tracker_name VARCHAR(255),
-    network_name VARCHAR(255),
-    campaign_name VARCHAR(255),
-    adgroup_name VARCHAR(255),
-    creative_name VARCHAR(255),
-    country VARCHAR(255),
+    country_subdivision VARCHAR(255),
+    city VARCHAR(255),
+    timezone VARCHAR(100),
     adid VARCHAR(255),
+    gps_adid VARCHAR(255),
+    idfa VARCHAR(255),
+    idfv VARCHAR(255),
+    tracker VARCHAR(255),
+    tracker_name VARCHAR(255),
+    network_name VARCHAR(255),
+    campaign_name VARCHAR(255),
+    adgroup_name VARCHAR(255),
+    creative_name VARCHAR(255),
+    event VARCHAR(255),
+    event_name VARCHAR(255),
+    revenue_float NUMERIC(18, 6),
+    currency VARCHAR(10),
+    reporting_revenue NUMERIC(18, 6),
+    reporting_currency VARCHAR(10),
+    ad_impressions_count NUMERIC(18, 6),
+    ad_mediation_platform VARCHAR(255),
     ad_revenue_network VARCHAR(255),
     ad_revenue_placement VARCHAR(255),
     ad_revenue_unit VARCHAR(255),
-    reporting_revenue NUMERIC(18, 6),
-    reporting_currency VARCHAR(10),
-    ad_impression_count NUMERIC(18, 6)
+    subscription_event_type VARCHAR(50),
+    subscription_purchased_at TIMESTAMP,
+    subscription_expiration_time TIMESTAMP,
+    subscription_cancelled_at TIMESTAMP,
+    subscription_transaction_id VARCHAR(255),
+    subscription_original_transaction_id VARCHAR(255),
+    subscription_product_id VARCHAR(255),
+    subscription_sales_region VARCHAR(255),
+    reporting_cost NUMERIC(18, 6),
+    installed_at TIMESTAMP,
+    click_time TIMESTAMP,
+    impression_time TIMESTAMP,
+    engagement_time TIMESTAMP,
+    impression_based BOOLEAN,
+    is_organic BOOLEAN
 );
 
-ALTER TABLE adjust.event__ad_revenue REPLICA IDENTITY FULL;
-
-CREATE TABLE adjust.event__subscription (
-    id SERIAL PRIMARY KEY,
-    created_at TIMESTAMP,
-    store_id VARCHAR(255),
-    tracker_name VARCHAR(255),
-    network_name VARCHAR(255),
-    campaign_name VARCHAR(255),
-    adgroup_name VARCHAR(255),
-    creative_name VARCHAR(255),
-    country VARCHAR(255),
-    adid VARCHAR(255),
-    product_id VARCHAR(255),
-    reporting_revenue NUMERIC(18, 6),
-    reporting_currency VARCHAR(10)
-);
-
-ALTER TABLE adjust.event__subscription REPLICA IDENTITY FULL;
+ALTER TABLE adjust.event REPLICA IDENTITY FULL;

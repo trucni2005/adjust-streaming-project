@@ -75,6 +75,13 @@ services:
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
       KAFKA_MIN_INSYNC_REPLICAS: 2
+      # Xóa log segment cũ hơn 2h để không giữ dữ liệu vô thời hạn trên đĩa
+      KAFKA_LOG_RETENTION_HOURS: 2
+      # Giới hạn thêm theo dung lượng mỗi partition (1GB) phòng khi throughput cao trong 2h
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      # Broker check định kỳ 5 phút để dọn log hết hạn kịp trong cửa sổ 2h
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      KAFKA_NUM_PARTITIONS: 5
     volumes:
       - ./kafka-cluster-volumes/kafka1/data:/var/lib/kafka/data
     networks:
@@ -117,6 +124,13 @@ services:
       KAFKA_DEFAULT_REPLICATION_FACTOR: 3
       # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
       KAFKA_MIN_INSYNC_REPLICAS: 2
+      # Xóa log segment cũ hơn 2h để không giữ dữ liệu vô thời hạn trên đĩa
+      KAFKA_LOG_RETENTION_HOURS: 2
+      # Giới hạn thêm theo dung lượng mỗi partition (1GB) phòng khi throughput cao trong 2h
+      KAFKA_LOG_RETENTION_BYTES: 1073741824
+      # Broker check định kỳ 5 phút để dọn log hết hạn kịp trong cửa sổ 2h
+      KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+      KAFKA_NUM_PARTITIONS: 5
     volumes:
       - ./kafka-cluster-volumes/kafka2/data:/var/lib/kafka/data
     networks:
@@ -159,6 +173,13 @@ services:
         KAFKA_DEFAULT_REPLICATION_FACTOR: 3
         # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
         KAFKA_MIN_INSYNC_REPLICAS: 2
+        # Xóa log segment cũ hơn 2h để không giữ dữ liệu vô thời hạn trên đĩa
+        KAFKA_LOG_RETENTION_HOURS: 2
+        # Giới hạn thêm theo dung lượng mỗi partition (1GB) phòng khi throughput cao trong 2h
+        KAFKA_LOG_RETENTION_BYTES: 1073741824
+        # Broker check định kỳ 5 phút để dọn log hết hạn kịp trong cửa sổ 2h
+        KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+        KAFKA_NUM_PARTITIONS: 5
       volumes:
         - ./kafka-cluster-volumes/kafka3/data:/var/lib/kafka/data
       networks:
@@ -209,6 +230,8 @@ services:
     container_name: simulator
     ports:
       - "8000:8000"
+    volumes:
+      - ./simulator:/app
     environment:
       - PG_HOST=${PG_HOST}
       - PG_PORT=5432

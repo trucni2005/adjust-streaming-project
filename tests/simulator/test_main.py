@@ -14,7 +14,14 @@ def test_random_id_string_prefix_and_length():
 def test_random_tracker_attrs_keys():
     attrs = main.random_tracker_attrs()
     assert attrs["store_id"] in main.STORES
+    assert attrs["app_name"] == main.APP_NAMES[attrs["store_id"]]
     assert attrs["app_version"] in main.APP_VERSIONS
+    assert attrs["platform"] in main.PLATFORMS
+    assert attrs["os_name"] == attrs["platform"]
+
+    
+    assert attrs["os_version"] in main.OS_VERSIONS_BY_PLATFORM[attrs["platform"]]
+    assert attrs["device_model"] in main.DEVICE_MODELS_BY_PLATFORM[attrs["platform"]]
     assert attrs["network_name"] in main.NETWORKS
     assert attrs["campaign_name"] in main.CAMPAIGNS
     assert attrs["adgroup_name"] in main.ADGROUPS
@@ -33,45 +40,70 @@ def test_insert_install():
     assert result == 42
     cur.execute.assert_called_once()
     params = cur.execute.call_args[0][1]
+    assert params["activity_kind"] == "install"
     assert params["adid"] == "adid_abc123"
+    assert params["gps_adid"] == "adid_abc123"
     assert params["store_id"] == attrs["store_id"]
+    assert params["installed_at"] is not None
 
 
 def test_insert_ad_revenue():
     cur = MagicMock()
-    cur.fetchone.return_value = (7, "adid_abc123", 0.05, "USD")
+    cur.fetchone.return_value = (7,)
     attrs = main.random_tracker_attrs()
 
     result = main.insert_ad_revenue(cur, attrs, "adid_abc123")
 
-    assert result == {"id": 7, "adid": "adid_abc123", "reporting_revenue": 0.05, "reporting_currency": "USD"}
+    assert result["id"] == 7
+    assert result["adid"] == "adid_abc123"
+    assert 0.0001 <= result["reporting_revenue"] <= 0.1
+    assert result["reporting_currency"] in main.CURRENCIES
     cur.execute.assert_called_once()
     params = cur.execute.call_args[0][1]
+    assert params["activity_kind"] == "ad_revenue"
     assert params["ad_revenue_network"] in main.AD_REVENUE_NETWORKS
     assert params["ad_revenue_placement"] in main.AD_REVENUE_PLACEMENTS
     assert params["ad_revenue_unit"] in main.AD_REVENUE_UNITS
-    assert params["currency"] in main.CURRENCIES
-    assert 0.0001 <= params["revenue"] <= 0.1
-    assert 1 <= params["impressions"] <= 50
+    assert params["reporting_currency"] in main.CURRENCIES
+    assert 0.0001 <= params["reporting_revenue"] <= 0.1
+    assert 1 <= params["ad_impressions_count"] <= 50
 
 
-@patch("main.random.randint", return_value=3)
+def test_insert_subscription():
+    cur = MagicMock()
+    cur.fetchone.return_value = (9,)
+    attrs = main.random_tracker_attrs()
+
+    result = main.insert_subscription(cur, attrs, "adid_abc123")
+
+    assert result["id"] == 9
+    assert result["adid"] == "adid_abc123"
+    cur.execute.assert_called_once()
+    params = cur.execute.call_args[0][1]
+    assert params["activity_kind"] == "subscription"
+    assert params["subscription_event_type"] in main.SUBSCRIPTION_EVENT_TYPES
+    assert params["subscription_product_id"] in main.SUBSCRIPTION_PRODUCT_IDS
+    assert params["subscription_sales_region"] in main.SUBSCRIPTION_SALES_REGIONS
+    assert params["subscription_transaction_id"].startswith("txn_")
+    assert params["subscription_original_transaction_id"].startswith("otxn_")
+    assert params["reporting_currency"] in main.CURRENCIES
+
+
+@patch("main.random.randint")
 @patch("main.get_connection")
-def test_fire_random_install_event(mock_get_connection, _mock_randint):
+def test_fire_random_install_event(mock_get_connection, mock_randint):
+    mock_randint.side_effect = [3, 2]  # ad_revenue_count, subscription_count
+
     conn = MagicMock()
     cur = MagicMock()
     conn.cursor.return_value.__enter__.return_value = cur
     mock_get_connection.return_value = conn
 
-    cur.fetchone.side_effect = [
-        (1,),  # insert_install
-        (10, "adid", 0.01, "USD"),
-        (11, "adid", 0.02, "USD"),
-        (12, "adid", 0.03, "USD"),
-    ]
+    cur.fetchone.side_effect = [(1,), (10,), (11,), (12,), (20,), (21,)]
 
     result = main.fire_random_install_event()
 
     assert result["install"]["id"] == 1
     assert len(result["ad_revenue_events"]) == 3
+    assert len(result["subscription_events"]) == 2
     conn.close.assert_called_once()
