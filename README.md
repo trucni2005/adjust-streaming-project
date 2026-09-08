@@ -1,11 +1,12 @@
 # Adjust Streaming Project
 
-A local streaming data pipeline that simulates Adjust-style mobile attribution events (installs, ad revenue, subscriptions), persists them to Postgres, streams changes via Kafka/Debezium CDC, and sinks them into ClickHouse through two interchangeable stream processors — Flink and Spark — for side-by-side comparison.
+A local streaming data pipeline that simulates Adjust-style mobile attribution events (installs, ad revenue, subscriptions), persists them to Postgres, streams changes via Kafka/Debezium CDC, and fans them out through two interchangeable stream processors — Flink (sinking to ClickHouse) and Spark (sinking to an Apache Hudi table) — for side-by-side comparison.
 
 ## Architecture
 
 ```
-simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kafka cluster --> Flink / Spark --> ClickHouse
+simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kafka cluster --> Flink --> ClickHouse
+                                                                                            \-> Spark --> Hudi (silver_events)
 ```
 
 - **simulator** — FastAPI service that generates random install / ad-revenue / subscription events and writes them to a single `adjust.event` table in Postgres, distinguished by an `activity_kind` column.
@@ -14,10 +15,10 @@ simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kaf
 - **kconnect** (Debezium) — captures Postgres changes via CDC and publishes them to a single Kafka topic (`adjust-dbserver.adjust.event`). The connector isn't auto-registered on startup — see [Setup](#setup) step 3.
 - **kafka-ui** — web UI for inspecting Kafka topics and the Debezium connector.
 - **flink-jobmanager / flink-taskmanager** — PyFlink job ([flink/jobs/sink_to_clickhouse.py](flink/jobs/sink_to_clickhouse.py)) consuming the `event` topic and writing to ClickHouse table `flink__events`.
-- **spark-master / spark-worker-1 / spark-worker-2** — Spark Structured Streaming job ([spark/app/sink_to_clickhouse.py](spark/app/sink_to_clickhouse.py)) doing the same, writing to `spark__events`.
-- **clickhouse** — analytical sink. Table DDL lives in [ddl/clickhouse/01-events.sql](ddl/clickhouse/01-events.sql) (apply manually via `clickhouse-client` — not auto-applied on startup).
+- **spark-master / spark-worker-1 / spark-worker-2** — Spark Structured Streaming job ([spark/app/sink_to_silver.py](spark/app/sink_to_silver.py)) consuming the same topic and appending (insert-only, full CDC history kept) to an Apache Hudi table at `/data/lakehouse/silver_events` (bind-mounted host-side under `spark/data/lakehouse`), partitioned by `event_date`.
+- **clickhouse** — analytical sink for the Flink pipeline. Table DDL lives in [ddl/clickhouse/01-events.sql](ddl/clickhouse/01-events.sql) (apply manually via `clickhouse-client` — not auto-applied on startup). It still defines an unused `silver.events` table kept for reference.
 
-Flink and Spark write to separate tables (`flink__events` / `spark__events`) on purpose so both pipelines can run against the same Kafka topic at once without clobbering each other's output.
+Flink and Spark intentionally sink to different systems (ClickHouse vs. Hudi) so both pipelines can run against the same Kafka topic at once without clobbering each other's output, while also demonstrating an OLAP-engine sink vs. a lakehouse-table sink.
 
 ## Setup
 

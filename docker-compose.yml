@@ -244,7 +244,7 @@ services:
       - kafka-net
 
   spark-master:
-    image: apache/spark:latest
+    image: apache/spark:3.5.9-scala2.12-java17-python3-ubuntu
     container_name: spark-master
     hostname: spark-master
     command: >
@@ -258,17 +258,13 @@ services:
       - "4040:4040"
     environment:
       HOME: /tmp
-      KAFKA_CONNECTOR_PACKAGE: org.apache.spark:spark-sql-kafka-0-10_2.13:4.2.0
-      CLICKHOUSE_HOST: ${CLICKHOUSE_HOST}
-      CLICKHOUSE_PORT: ${CLICKHOUSE_PORT}
-      CLICKHOUSE_USER: ${CLICKHOUSE_USER}
-      CLICKHOUSE_PASSWORD: ${CLICKHOUSE_PASSWORD}
+      KAFKA_CONNECTOR_PACKAGE: org.apache.spark:spark-sql-kafka-0-10_2.12:3.5.9
     volumes:
       - ./spark/app:/app
       - ./spark/data:/data
 
   spark-worker-1:
-    image: apache/spark:latest
+    image: apache/spark:3.5.9-scala2.12-java17-python3-ubuntu
     hostname: spark-worker-1
     command: >
       /opt/spark/bin/spark-class
@@ -290,7 +286,7 @@ services:
       - ./spark/data:/data
 
   spark-worker-2:
-    image: apache/spark:latest
+    image: apache/spark:3.5.9-scala2.12-java17-python3-ubuntu
     hostname: spark-worker-2
     command: >
       /opt/spark/bin/spark-class

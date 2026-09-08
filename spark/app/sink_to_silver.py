@@ -4,15 +4,19 @@ import os
 from datetime import datetime, timezone
 from decimal import Decimal
 
-import clickhouse_connect
-import pandas as pd
-from pyspark.sql import SparkSession
+from pyspark.sql import Row, SparkSession
+from pyspark.sql.types import (
+    BooleanType,
+    DecimalType,
+    LongType,
+    StringType,
+    StructField,
+    StructType,
+    TimestampType,
+)
 
-CLICKHOUSE_HOST = os.getenv("CLICKHOUSE_HOST", "clickhouse")
-CLICKHOUSE_PORT = int(os.getenv("CLICKHOUSE_PORT", "8123"))
-CLICKHOUSE_USER = os.getenv("CLICKHOUSE_USER", "default")
-CLICKHOUSE_PASSWORD = os.getenv("CLICKHOUSE_PASSWORD", "pass")
-CLICKHOUSE_TABLE = "spark__events"
+HUDI_TABLE_PATH = os.getenv("SILVER_HUDI_PATH", "/data/lakehouse/silver_events")
+HUDI_TABLE_NAME = "silver_events"
 
 KAFKA_BOOTSTRAP_SERVERS = "kafka1:9092,kafka2:9092,kafka3:9092"
 KAFKA_TOPIC = "adjust-dbserver.adjust.event"
@@ -21,7 +25,8 @@ KAFKA_TOPIC = "adjust-dbserver.adjust.event"
 # see nothing for this query by default. The listener below mirrors each
 # micro-batch's end offset into this consumer group purely so those tools can
 # show lag — it has no effect on the query's own recovery/correctness.
-# Order matches the column order in ddl/clickhouse/init.sql (flink__events / spark__events).
+# Order matches the column order in ddl/clickhouse/init.sql (flink__events / silver.events),
+# plus a trailing event_date used only as the Hudi partition column.
 COLUMNS = [
     "id", "activity_kind", "created_at", "app_token", "store_id", "app_name", "app_version",
     "platform", "environment", "sdk_version", "os_name", "os_version", "device_type",
@@ -43,6 +48,26 @@ TIMESTAMP_COLUMNS = {
     "engagement_time",
 }
 DECIMAL_COLUMNS = {"revenue_float", "reporting_revenue", "ad_impressions_count", "reporting_cost"}
+BOOL_COLUMNS = {"impression_based", "is_organic"}
+LONG_COLUMNS = {"id", "__debezium_ts_ms"}
+
+
+def _column_type(column):
+    if column in LONG_COLUMNS:
+        return LongType()
+    if column in TIMESTAMP_COLUMNS:
+        return TimestampType()
+    if column in DECIMAL_COLUMNS:
+        return DecimalType(18, 6)
+    if column in BOOL_COLUMNS:
+        return BooleanType()
+    return StringType()
+
+
+PARSED_SCHEMA = StructType(
+    [StructField(column, _column_type(column)) for column in COLUMNS]
+    + [StructField("event_date", StringType())]
+)
 
 
 def decode_debezium_decimal(b64_value, scale):
@@ -76,33 +101,35 @@ def parse_message(value):
             parsed[column] = decode_debezium_decimal(row.get(column), 6)
         else:
             parsed[column] = row.get(column)
+    parsed["event_date"] = datetime.fromtimestamp(
+        payload["ts_ms"] / 1000, tz=timezone.utc
+    ).strftime("%Y-%m-%d")
     return parsed
 
 
-def write_partition_to_clickhouse(rows_iter):
-    rows = [parse_message(row.value) for row in rows_iter]
-    rows = [row for row in rows if row is not None]
-    if not rows:
+def write_batch_to_hudi(batch_df, batch_id):
+    parsed_rdd = batch_df.select("value").rdd.map(lambda row: parse_message(row.value))
+    parsed_rdd = parsed_rdd.filter(lambda row: row is not None).map(lambda row: Row(**row))
+    if parsed_rdd.isEmpty():
         return
 
-    client = clickhouse_connect.get_client(
-        host=CLICKHOUSE_HOST,
-        port=CLICKHOUSE_PORT,
-        username=CLICKHOUSE_USER,
-        password=CLICKHOUSE_PASSWORD,
-    )
-    try:
-        client.insert_df(CLICKHOUSE_TABLE, pd.DataFrame(rows, columns=COLUMNS))
-    finally:
-        client.close()
-
-
-def write_batch_to_clickhouse(batch_df, batch_id):
-    batch_df.select("value").foreachPartition(write_partition_to_clickhouse)
+    parsed_df = spark.createDataFrame(parsed_rdd, schema=PARSED_SCHEMA)
+    parsed_df.write.format("hudi") \
+        .option("hoodie.table.name", HUDI_TABLE_NAME) \
+        .option("hoodie.datasource.write.table.type", "COPY_ON_WRITE") \
+        .option("hoodie.datasource.write.operation", "insert") \
+        .option("hoodie.datasource.write.recordkey.field", "id") \
+        .option("hoodie.datasource.write.precombine.field", "__debezium_ts_ms") \
+        .option("hoodie.datasource.write.partitionpath.field", "event_date") \
+        .option("hoodie.datasource.write.hive_style_partitioning", "true") \
+        .mode("append") \
+        .save(HUDI_TABLE_PATH)
 
 
 spark = SparkSession.builder \
-    .appName("SinkToClickhouse") \
+    .appName("SinkToSilver") \
+    .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
+    .config("spark.sql.extensions", "org.apache.spark.sql.hudi.HoodieSparkSessionExtension") \
     .getOrCreate()
 
 df = spark.readStream \
@@ -114,9 +141,9 @@ df = spark.readStream \
     .selectExpr("CAST(value AS STRING) as value")
 
 query = df.writeStream \
-    .foreachBatch(write_batch_to_clickhouse) \
+    .foreachBatch(write_batch_to_hudi) \
     .trigger(processingTime="1 minutes") \
-    .option("checkpointLocation", "/data/checkpoints/sink_to_clickhouse") \
+    .option("checkpointLocation", "/data/checkpoints/sink_to_silver") \
     .start()
 
 query.awaitTermination()

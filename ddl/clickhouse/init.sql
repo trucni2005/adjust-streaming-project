@@ -61,7 +61,9 @@ CREATE TABLE IF NOT EXISTS default.flink__events
 ENGINE = ReplacingMergeTree(__debezium_ts_ms)
 ORDER BY (id);
 
-CREATE TABLE IF NOT EXISTS default.spark__events
+CREATE DATABASE IF NOT EXISTS silver;
+
+CREATE TABLE IF NOT EXISTS silver.events
 (
     id                                      Int64,
     activity_kind                           Nullable(String),
