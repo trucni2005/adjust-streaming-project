@@ -1,12 +1,11 @@
 # Adjust Streaming Project
 
-A local streaming data pipeline that simulates Adjust-style mobile attribution events (installs, ad revenue, subscriptions), persists them to Postgres, streams changes via Kafka/Debezium CDC, and fans them out through two interchangeable stream processors — Flink (sinking to ClickHouse) and Spark (sinking to an Apache Hudi table) — for side-by-side comparison.
+A local streaming data pipeline that simulates Adjust-style mobile attribution events (installs, ad revenue, subscriptions), persists them to Postgres, streams changes via Kafka/Debezium CDC, and processes them with a Spark Structured Streaming job that lands them in a Delta Lake table.
 
 ## Architecture
 
 ```
-simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kafka cluster --> Flink --> ClickHouse
-                                                                                            \-> Spark --> Hudi (silver_events)
+simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kafka cluster --> Spark Structured Streaming --> Delta Lake (bronze_events)
 ```
 
 - **simulator** — FastAPI service that generates random install / ad-revenue / subscription events and writes them to a single `adjust.event` table in Postgres, distinguished by an `activity_kind` column.
@@ -14,15 +13,12 @@ simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kaf
 - **kafka1/kafka2/kafka3** — 3-broker KRaft-mode Kafka cluster (no ZooKeeper).
 - **kconnect** (Debezium) — captures Postgres changes via CDC and publishes them to a single Kafka topic (`adjust-dbserver.adjust.event`). The connector isn't auto-registered on startup — see [Setup](#setup) step 3.
 - **kafka-ui** — web UI for inspecting Kafka topics and the Debezium connector.
-- **flink-jobmanager / flink-taskmanager** — PyFlink job ([flink/jobs/sink_to_clickhouse.py](flink/jobs/sink_to_clickhouse.py)) consuming the `event` topic and writing to ClickHouse table `flink__events`.
-- **spark-master / spark-worker-1 / spark-worker-2** — Spark Structured Streaming job ([spark/app/sink_to_silver.py](spark/app/sink_to_silver.py)) consuming the same topic and appending (insert-only, full CDC history kept) to an Apache Hudi table at `/data/lakehouse/silver_events` (bind-mounted host-side under `spark/data/lakehouse`), partitioned by `event_date`.
-- **clickhouse** — analytical sink for the Flink pipeline. Table DDL lives in [ddl/clickhouse/01-events.sql](ddl/clickhouse/01-events.sql) (apply manually via `clickhouse-client` — not auto-applied on startup). It still defines an unused `silver.events` table kept for reference.
-
-Flink and Spark intentionally sink to different systems (ClickHouse vs. Hudi) so both pipelines can run against the same Kafka topic at once without clobbering each other's output, while also demonstrating an OLAP-engine sink vs. a lakehouse-table sink.
+- **spark-master / spark-worker-1 / spark-worker-2** — Spark Structured Streaming job ([spark/app/bronze/sink_to_bronze.py](spark/app/bronze/sink_to_bronze.py)) consuming the topic and appending (insert-only, full CDC history kept) to a Delta Lake table at `/data/lakehouse/bronze_events` (bind-mounted host-side under `spark/data/lakehouse`), partitioned by `event_date`. A `spark/app/silver` directory exists as a placeholder for a follow-on silver-layer job, not yet implemented.
+- **spark-history-server** — Spark History Server reading event logs written to `/data/spark-events` (bind-mounted host-side under `spark/data/spark-events`), so completed job runs can be inspected after the fact.
 
 ## Setup
 
-1. Copy `.env.example` to `.env` and fill in the values (Postgres/ClickHouse credentials).
+1. Copy `.env.example` to `.env` and fill in the values (Postgres credentials).
 2. `docker compose up -d --build`
 3. Register the Debezium connector once `kconnect` is up (this is not persisted anywhere — redo it after a full stack teardown/volume wipe):
    ```
@@ -48,19 +44,14 @@ Flink and Spark intentionally sink to different systems (ClickHouse vs. Hudi) so
    ```
    curl http://localhost:8083/connectors/streaming-connector/status
    ```
-   or inspect it in Kafka UI (http://localhost:8080 → Kafka Connect → debezium).
-4. Apply the ClickHouse DDL once the `clickhouse` container is up:
+   or inspect it in Kafka UI (http://localhost:8088 → Kafka Connect → debezium).
+4. Submit the Spark processing job:
    ```
-   docker compose exec -T clickhouse clickhouse-client --user default --password <pass> --multiquery < ddl/clickhouse/01-events.sql
-   ```
-5. Submit a processing job (either or both):
-   ```
-   scripts/run_flink_job.sh
    scripts/run_spark_job.sh
    ```
-   Both are long-running streaming jobs — the scripts block until you stop them.
+   This is a long-running streaming job — the script blocks until you stop it.
 
-Editing `flink/jobs/*.py` or `spark/app/*.py` takes effect immediately on the next job submission (both are bind-mounted into their containers) — no rebuild needed unless you change a dependency in the `Dockerfile`.
+Editing `spark/app/**/*.py` takes effect immediately on the next job submission (bind-mounted into the Spark containers) — no rebuild needed unless you change a dependency in the `Dockerfile`.
 
 ## Ports
 
@@ -69,11 +60,11 @@ Editing `flink/jobs/*.py` or `spark/app/*.py` takes effect immediately on the ne
 | Postgres | 5434 | maps to container's 5432 |
 | Kafka (broker 1/2/3) | 9092 / 9094 / 9096 | |
 | Kafka Connect (Debezium) | 8083 | |
-| Kafka UI | 8080 | |
+| Kafka UI | 8088 | |
 | Simulator (FastAPI) | 8000 | |
 | Spark master UI | 7070 | maps to container's 8080 |
 | Spark master RPC | 7077 | |
 | Spark driver UI | 4040 | only up while a Spark job is running |
-| Flink JobManager UI | 8001 | maps to container's 8081 |
-| ClickHouse HTTP | 8123 | |
-| ClickHouse native protocol | 9000 | |
+| Spark worker 1 UI | 8091 | |
+| Spark worker 2 UI | 8092 | |
+| Spark History Server | 18080 | |

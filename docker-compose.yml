@@ -20,23 +20,6 @@ services:
     networks:
       - kafka-net
 
-  clickhouse:
-    image: clickhouse/clickhouse-server:24.8
-    container_name: clickhouse
-    ports:
-      - "9000:9000"  # Native protocol
-      - "8123:8123"  # HTTP protocol
-    environment:
-      - CLICKHOUSE_DB=default
-      - CLICKHOUSE_USER=default
-      - CLICKHOUSE_PASSWORD=default
-      - CLICKHOUSE_DEFAULT_ACCESS_MANAGEMENT=1
-    volumes:
-      - ./clickhouse-db-volumes/data:/var/lib/clickhouse
-      - ./clickhouse-db-volumes/logs:/var/log/clickhouse_server
-    networks:
-      - kafka-net
-
   kafka1:
     # Image dùng để tạo container
     # Docker sẽ pull image này từ Docker Hub để khởi tạo container
@@ -307,50 +290,20 @@ services:
       - ./spark/app:/app
       - ./spark/data:/data
 
-  flink-jobmanager:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: pyflink
+  spark-history-server:
+    image: apache/spark:3.5.9-scala2.12-java17-python3-ubuntu
+    container_name: spark-history-server
+    hostname: spark-history-server
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.history.HistoryServer
+    environment:
+      SPARK_HISTORY_OPTS: >-
+        -Dspark.history.fs.logDirectory=/data/spark-events
     ports:
-      - "8001:8081"
-    environment:
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: flink-jobmanager
-        gs.create.items.conflict.check.enable: false
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-    command: jobmanager
-    depends_on:
-      - kafka1
-      - kafka2
-      - kafka3
+      - "18080:18080"
+    networks:
+      - kafka-net
     volumes:
-      - ./flink/jobs:/opt/flink/usrlib/jobs
+      - ./spark/data:/data
 
-    networks:
-      - kafka-net
-
-  flink-taskmanager:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: pyflink
-    depends_on:
-      - flink-jobmanager
-    command: taskmanager
-    scale: 2
-    environment:
-      - |
-        FLINK_PROPERTIES=
-        jobmanager.rpc.address: flink-jobmanager
-        taskmanager.numberOfTaskSlots: 2
-      - CLICKHOUSE_HOST=${CLICKHOUSE_HOST}
-      - CLICKHOUSE_PORT=${CLICKHOUSE_PORT}
-      - CLICKHOUSE_USER=${CLICKHOUSE_USER}
-      - CLICKHOUSE_PASSWORD=${CLICKHOUSE_PASSWORD}
-    networks:
-      - kafka-net

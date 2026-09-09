@@ -15,8 +15,7 @@ from pyspark.sql.types import (
     TimestampType,
 )
 
-HUDI_TABLE_PATH = os.getenv("SILVER_HUDI_PATH", "/data/lakehouse/silver_events")
-HUDI_TABLE_NAME = "silver_events"
+DELTA_TABLE_PATH = os.getenv("BRONZE_DELTA_PATH", "/data/lakehouse/bronze_events")
 
 KAFKA_BOOTSTRAP_SERVERS = "kafka1:9092,kafka2:9092,kafka3:9092"
 KAFKA_TOPIC = "adjust-dbserver.adjust.event"
@@ -25,8 +24,8 @@ KAFKA_TOPIC = "adjust-dbserver.adjust.event"
 # see nothing for this query by default. The listener below mirrors each
 # micro-batch's end offset into this consumer group purely so those tools can
 # show lag — it has no effect on the query's own recovery/correctness.
-# Order matches the column order in ddl/clickhouse/init.sql (flink__events / silver.events),
-# plus a trailing event_date used only as the Hudi partition column.
+# Order matches the canonical Adjust event schema, plus a trailing event_date
+# used only as the Delta partition column.
 COLUMNS = [
     "id", "activity_kind", "created_at", "app_token", "store_id", "app_name", "app_version",
     "platform", "environment", "sdk_version", "os_name", "os_version", "device_type",
@@ -107,29 +106,24 @@ def parse_message(value):
     return parsed
 
 
-def write_batch_to_hudi(batch_df, batch_id):
+def write_batch_to_delta(batch_df, batch_id):
     parsed_rdd = batch_df.select("value").rdd.map(lambda row: parse_message(row.value))
     parsed_rdd = parsed_rdd.filter(lambda row: row is not None).map(lambda row: Row(**row))
     if parsed_rdd.isEmpty():
         return
 
     parsed_df = spark.createDataFrame(parsed_rdd, schema=PARSED_SCHEMA)
-    parsed_df.write.format("hudi") \
-        .option("hoodie.table.name", HUDI_TABLE_NAME) \
-        .option("hoodie.datasource.write.table.type", "COPY_ON_WRITE") \
-        .option("hoodie.datasource.write.operation", "insert") \
-        .option("hoodie.datasource.write.recordkey.field", "id") \
-        .option("hoodie.datasource.write.precombine.field", "__debezium_ts_ms") \
-        .option("hoodie.datasource.write.partitionpath.field", "event_date") \
-        .option("hoodie.datasource.write.hive_style_partitioning", "true") \
+    parsed_df.write.format("delta") \
         .mode("append") \
-        .save(HUDI_TABLE_PATH)
+        .partitionBy("event_date") \
+        .save(DELTA_TABLE_PATH)
 
 
 spark = SparkSession.builder \
-    .appName("SinkToSilver") \
+    .appName("SinkToBronze") \
     .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
-    .config("spark.sql.extensions", "org.apache.spark.sql.hudi.HoodieSparkSessionExtension") \
+    .config("spark.sql.extensions", "io.delta.sql.DeltaSparkSessionExtension") \
+    .config("spark.sql.catalog.spark_catalog", "org.apache.spark.sql.delta.catalog.DeltaCatalog") \
     .getOrCreate()
 
 df = spark.readStream \
@@ -141,9 +135,9 @@ df = spark.readStream \
     .selectExpr("CAST(value AS STRING) as value")
 
 query = df.writeStream \
-    .foreachBatch(write_batch_to_hudi) \
+    .foreachBatch(write_batch_to_delta) \
     .trigger(processingTime="1 minutes") \
-    .option("checkpointLocation", "/data/checkpoints/sink_to_silver") \
+    .option("checkpointLocation", "/data/checkpoints/sink_to_bronze") \
     .start()
 
 query.awaitTermination()
