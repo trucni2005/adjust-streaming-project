@@ -3,3 +3,6 @@ kafka-cluster/*
 __pycache__/
 spark/data/*
 .env
+CLAUDE.md
+.claude
+lakehouse/*

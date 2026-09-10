@@ -20,7 +20,8 @@ simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kaf
 
 1. Copy `.env.example` to `.env` and fill in the values (Postgres credentials).
 2. `docker compose up -d --build`
-3. Register the Debezium connector once `kconnect` is up (this is not persisted anywhere — redo it after a full stack teardown/volume wipe):
+3. Chạy init DDL trên postgres
+4. Register the Debezium connector once `kconnect` is up (this is not persisted anywhere — redo it after a full stack teardown/volume wipe):
    ```
    curl -X POST http://localhost:8083/connectors \
      -H "Content-Type: application/json" \
@@ -45,11 +46,6 @@ simulator (FastAPI) --> Postgres (adjust schema) --> Debezium (kconnect) --> Kaf
    curl http://localhost:8083/connectors/streaming-connector/status
    ```
    or inspect it in Kafka UI (http://localhost:8088 → Kafka Connect → debezium).
-4. Submit the Spark processing job:
-   ```
-   scripts/run_spark_job.sh
-   ```
-   This is a long-running streaming job — the script blocks until you stop it.
 
 Editing `spark/app/**/*.py` takes effect immediately on the next job submission (bind-mounted into the Spark containers) — no rebuild needed unless you change a dependency in the `Dockerfile`.
 
