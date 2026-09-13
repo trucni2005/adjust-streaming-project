@@ -2,8 +2,10 @@ import os
 
 from pyspark.sql import SparkSession
 
+ENV = os.getenv("ENV", "dev")
+
 ICEBERG_CATALOG = "bronze_catalog"
-ICEBERG_TABLE = f"{ICEBERG_CATALOG}.default.bronze_events"
+ICEBERG_TABLE = f"{ICEBERG_CATALOG}.{ENV}.bronze_events"
 ICEBERG_WAREHOUSE = os.getenv("BRONZE_ICEBERG_WAREHOUSE", "/lakehouse")
 CHECKPOINT_LOCATION = os.getenv("BRONZE_CHECKPOINT_LOCATION", "/data/checkpoints/sink_to_bronze")
 
@@ -48,8 +50,9 @@ if __name__ == "__main__":
     spark = SparkSession.builder \
         .appName("SinkToBronze") \
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
-        .config("spark.driver.extraClassPath", "/conf/jars/*") \
-        .config("spark.executor.extraClassPath", "/conf/jars/*") \
+        .config("spark.sql.shuffle.partitions", "4") \
+        .config("spark.driver.extraClassPath", "/opt/spark/jars/*") \
+        .config("spark.executor.extraClassPath", "/opt/spark/jars/*") \
         .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config(f"spark.sql.catalog.{ICEBERG_CATALOG}", "org.apache.iceberg.spark.SparkCatalog") \
         .config(f"spark.sql.catalog.{ICEBERG_CATALOG}.type", "hadoop") \

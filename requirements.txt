@@ -4,5 +4,4 @@ uvicorn==0.30.6
 psycopg2-binary==2.9.10
 pytest==8.3.3
 ruff==0.6.9
-pyspark==3.5.1
 pandas==2.2.3
