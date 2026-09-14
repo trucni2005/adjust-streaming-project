@@ -1,9 +1,10 @@
 -include spark-env.sh
+-include .env
 .PHONY: up down build restart logs ps submit-bronze register-connector connector-status
 
 up:
 	mkdir -p kafka-cluster-volumes/kafka1/data kafka-cluster-volumes/kafka2/data kafka-cluster-volumes/kafka3/data
-	docker run --rm -v $(CURDIR)/kafka-cluster-volumes:/data alpine chown -R 1000:1000 /data
+	docker run --rm -v /kafka-cluster-volumes:/data alpine chown -R 1000:1000 /data
 	docker compose up -d --build
 
 down:
@@ -22,7 +23,12 @@ ps:
 	docker compose ps
 
 spark-submit:
-	docker compose exec -e ENV=$(ENV) spark-master /opt/spark/bin/spark-submit \
+	docker compose exec \
+		-e ENV=$(ENV) \
+		-e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) \
+		-e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) \
+		-e S3_ENDPOINT=$(S3_ENDPOINT) \
+		spark-master /opt/spark/bin/spark-submit \
 		--master spark://spark-master:7077 \
 		/app/$(SPARK_LAYER)/$(SPARK_JOB).py
 

@@ -261,3 +261,36 @@ services:
     volumes:
       - ./spark-volumes/data:/data
 
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-12-13T22-19-12Z
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - ./minio-volumes:/data
+    environment:
+      - MINIO_ROOT_USER=admin
+      - MINIO_ROOT_PASSWORD=minio_password
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: server --console-address ":9001" /data
+    networks:
+      - kafka-net
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    entrypoint: sh
+    command: >
+      -c "
+      mc alias set local http://minio:9000 admin minio_password &&
+      mc mb -p local/lakehouse &&
+      mc mb -p local/data
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - kafka-net

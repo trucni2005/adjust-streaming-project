@@ -1,8 +1,8 @@
-kafka-cluster/*
-*-volumes/*
+kafka-cluster/
+*-volumes/
 __pycache__/
-spark/data/*
+spark/data/
 .env
 CLAUDE.md
 .claude
-lakehouse/*
+lakehouse/
