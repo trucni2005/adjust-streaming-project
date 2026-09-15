@@ -18,12 +18,16 @@ x-kafka-common: &kafka-common
   KAFKA_DEFAULT_REPLICATION_FACTOR: 3
   # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
   KAFKA_MIN_INSYNC_REPLICAS: 2
-  # Xóa log segment cũ hơn 2h để không giữ dữ liệu vô thời hạn trên đĩa
-  KAFKA_LOG_RETENTION_MS: 3600000
+  # Xóa log segment cũ hơn 1h để không giữ dữ liệu vô thời hạn trên đĩa
+  KAFKA_LOG_RETENTION_MS: 360000
   # Giới hạn thêm theo dung lượng mỗi partition (1GB) phòng khi throughput cao trong 2h
   KAFKA_LOG_RETENTION_BYTES: 1073741824
-  # Broker check định kỳ 5 phút để dọn log hết hạn kịp trong cửa sổ 2h
-  KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 300000
+  # Broker check định kỳ 1 phút để dọn log hết hạn kịp
+  KAFKA_LOG_RETENTION_CHECK_INTERVAL_MS: 60000
+  # Dùng delete policy (không phải compact) để thực sự xóa log cũ
+  KAFKA_LOG_CLEANUP_POLICY: delete
+  # Giảm segment size xuống 100MB để buộc roll over nhanh hơn (mặc định 1GB)
+  KAFKA_LOG_SEGMENT_BYTES: 104857600
   KAFKA_NUM_PARTITIONS: 4
   KAFKA_CONTROLLER_QUORUM_ELECTION_TIMEOUT_MS: 5000
   KAFKA_CONTROLLER_QUORUM_FETCH_TIMEOUT_MS: 10000
@@ -186,8 +190,6 @@ services:
       KAFKA_CONNECTOR_PACKAGE: org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
     volumes:
       - ./spark:/app
-      - ./spark-volumes/data:/data
-      - ./lakehouse:/lakehouse
 
   spark-worker-1:
     build:
@@ -212,8 +214,6 @@ services:
       SPARK_PUBLIC_DNS: localhost
     volumes:
       - ./spark:/app
-      - ./spark-volumes/data:/data
-      - ./lakehouse:/lakehouse
 
   spark-worker-2:
     build:
@@ -238,8 +238,6 @@ services:
       SPARK_PUBLIC_DNS: localhost
     volumes:
       - ./spark:/app
-      - ./spark-volumes/data:/data
-      - ./lakehouse:/lakehouse
 
   spark-history-server:
     build:

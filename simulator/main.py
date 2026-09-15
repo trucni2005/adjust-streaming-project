@@ -248,4 +248,4 @@ async def event_loop():
             fire_random_install_event()
         except Exception as exc:
             print(f"event_loop error: {exc}")
-        await asyncio.sleep(random.uniform(0.01, 3))
+        await asyncio.sleep(random.uniform(0.1, 3))
