@@ -1,3 +1,0 @@
-ENV=prod
-SPARK_LAYER=bronze
-SPARK_JOB=sink_to_bronze
