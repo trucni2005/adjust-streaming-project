@@ -16,13 +16,19 @@ FROM apache/spark:4.0.0-scala2.13-java17-python3-ubuntu AS spark
 
 USER root
 
-RUN pip install pyyaml
+RUN pip install pyyaml requests
+
+COPY jars.txt /tmp/jars.txt
 
 RUN cd /opt/spark/jars && \
-    curl -fL -O https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-4.0_2.13/1.11.0/iceberg-spark-runtime-4.0_2.13-1.11.0.jar && \
-    curl -fL -O https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.13/4.0.0/spark-sql-kafka-0-10_2.13-4.0.0.jar && \
-    curl -fL -O https://repo1.maven.org/maven2/org/apache/spark/spark-token-provider-kafka-0-10_2.13/4.0.0/spark-token-provider-kafka-0-10_2.13-4.0.0.jar && \
-    curl -fL -O https://repo1.maven.org/maven2/org/apache/kafka/kafka-clients/3.9.0/kafka-clients-3.9.0.jar && \
-    curl -fL -O https://repo1.maven.org/maven2/org/apache/commons/commons-pool2/2.12.0/commons-pool2-2.12.0.jar && \
-    curl -fL -O https://repo1.maven.org/maven2/org/apache/hadoop/hadoop-aws/3.4.1/hadoop-aws-3.4.1.jar && \
-    curl -fL -O https://repo1.maven.org/maven2/software/amazon/awssdk/bundle/2.24.6/bundle-2.24.6.jar
+    grep -v '^$' /tmp/jars.txt | while read jar; do \
+        org=$(echo "$jar" | cut -d: -f1); \
+        artifact=$(echo "$jar" | cut -d: -f2); \
+        version=$(echo "$jar" | cut -d: -f3); \
+        org_path=$(echo "$org" | sed 's/\./\//g'); \
+        url="https://repo1.maven.org/maven2/${org_path}/${artifact}/${version}/${artifact}-${version}.jar"; \
+        echo "Downloading: $url"; \
+        curl -fL -O "$url" || exit 1; \
+    done
+
+COPY spark /app

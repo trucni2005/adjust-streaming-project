@@ -1,0 +1,344 @@
+{
+  "type": "record",
+  "name": "AdjustEvent",
+  "namespace": "com.adjust.events",
+  "fields": [
+    {
+      "name": "id",
+      "type": "int",
+      "doc": "Primary key"
+    },
+    {
+      "name": "activity_kind",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Type of activity"
+    },
+    {
+      "name": "created_at",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Timestamp when event was created"
+    },
+    {
+      "name": "app_token",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Application token"
+    },
+    {
+      "name": "store_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Store identifier"
+    },
+    {
+      "name": "app_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Application name"
+    },
+    {
+      "name": "app_version",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Application version"
+    },
+    {
+      "name": "platform",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Platform (iOS, Android, etc.)"
+    },
+    {
+      "name": "environment",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Environment (production, staging, etc.)"
+    },
+    {
+      "name": "sdk_version",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "SDK version"
+    },
+    {
+      "name": "os_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Operating system name"
+    },
+    {
+      "name": "os_version",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Operating system version"
+    },
+    {
+      "name": "device_type",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Type of device"
+    },
+    {
+      "name": "device_model",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Device model"
+    },
+    {
+      "name": "language",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Language code"
+    },
+    {
+      "name": "country",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Country"
+    },
+    {
+      "name": "country_subdivision",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Country subdivision/state"
+    },
+    {
+      "name": "city",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "City"
+    },
+    {
+      "name": "timezone",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Timezone"
+    },
+    {
+      "name": "adid",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Android advertising ID"
+    },
+    {
+      "name": "gps_adid",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Google Play Services advertising ID"
+    },
+    {
+      "name": "idfa",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "iOS Identifier for Advertisers"
+    },
+    {
+      "name": "idfv",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "iOS Identifier for Vendor"
+    },
+    {
+      "name": "tracker",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Tracker identifier"
+    },
+    {
+      "name": "tracker_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Tracker name"
+    },
+    {
+      "name": "network_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Network name"
+    },
+    {
+      "name": "campaign_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Campaign name"
+    },
+    {
+      "name": "adgroup_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Ad group name"
+    },
+    {
+      "name": "creative_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Creative name"
+    },
+    {
+      "name": "event",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Event identifier"
+    },
+    {
+      "name": "event_name",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Event name"
+    },
+    {
+      "name": "revenue_float",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "Revenue amount as float"
+    },
+    {
+      "name": "currency",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Currency code"
+    },
+    {
+      "name": "reporting_revenue",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "Reporting revenue"
+    },
+    {
+      "name": "reporting_currency",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Reporting currency code"
+    },
+    {
+      "name": "ad_impressions_count",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "Number of ad impressions"
+    },
+    {
+      "name": "ad_mediation_platform",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Ad mediation platform"
+    },
+    {
+      "name": "ad_revenue_network",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Ad revenue network"
+    },
+    {
+      "name": "ad_revenue_placement",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Ad revenue placement"
+    },
+    {
+      "name": "ad_revenue_unit",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Ad revenue unit"
+    },
+    {
+      "name": "subscription_event_type",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Subscription event type"
+    },
+    {
+      "name": "subscription_purchased_at",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Subscription purchase timestamp"
+    },
+    {
+      "name": "subscription_expiration_time",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Subscription expiration timestamp"
+    },
+    {
+      "name": "subscription_cancelled_at",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Subscription cancellation timestamp"
+    },
+    {
+      "name": "subscription_transaction_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Subscription transaction ID"
+    },
+    {
+      "name": "subscription_original_transaction_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Original subscription transaction ID"
+    },
+    {
+      "name": "subscription_product_id",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Subscription product ID"
+    },
+    {
+      "name": "subscription_sales_region",
+      "type": ["null", "string"],
+      "default": null,
+      "doc": "Subscription sales region"
+    },
+    {
+      "name": "reporting_cost",
+      "type": ["null", "double"],
+      "default": null,
+      "doc": "Reporting cost"
+    },
+    {
+      "name": "installed_at",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Installation timestamp"
+    },
+    {
+      "name": "click_time",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Click timestamp"
+    },
+    {
+      "name": "impression_time",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Impression timestamp"
+    },
+    {
+      "name": "engagement_time",
+      "type": ["null", "long"],
+      "default": null,
+      "logicalType": "timestamp-millis",
+      "doc": "Engagement timestamp"
+    },
+    {
+      "name": "impression_based",
+      "type": ["null", "boolean"],
+      "default": null,
+      "doc": "Whether event is impression-based"
+    },
+    {
+      "name": "is_organic",
+      "type": ["null", "boolean"],
+      "default": null,
+      "doc": "Whether event is organic"
+    }
+  ]
+}

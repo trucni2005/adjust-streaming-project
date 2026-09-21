@@ -1,7 +1,9 @@
 sink_adjust_event_to_bronze:
   app_name: SinkToBronze
+  source: sink_to_bronze
   table: adjust_events
   kafka_topic: adjust-dbserver.adjust.event
   kafka_group_id: adjust-event-streaming-consumer
   trigger_interval: "1 minutes"
   shuffle_partitions: 2
+  schema_registry_url: "http://schema-registry:8081"

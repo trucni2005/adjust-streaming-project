@@ -45,8 +45,8 @@ def main():
 
     for job_key in CONFIG_JOBS:
         layer, job = job_key.split(".", 1)
-        module = importlib.import_module(f"{layer}.{job}")
         config = load_job_config(layer, job)
+        module = importlib.import_module(f"{layer}.{config['source']}")
         config["kafka_bootstrap_servers"] = kafka_bootstrap_servers
         config["iceberg_catalog"] = iceberg_catalog
         config["iceberg_warehouse"] = iceberg_warehouse

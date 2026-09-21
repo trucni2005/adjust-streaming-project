@@ -10,14 +10,21 @@ kafka-up:
 	sleep 5
 	docker compose up -d kafka1 kafka2 kafka3
 	sleep 10
-	docker compose up -d kconnect
+	docker compose up -d kconnect schema-registry
 	sleep 10
 	docker compose up -d kafka-ui
+
+register-schema:
+	jq -n --rawfile schema schema/adjust-event.avsc '{"schema": $$schema}' | \
+	curl -X POST \
+	  -H "Content-Type: application/vnd.schemaregistry.v1+json" \
+	  --data @- \
+	  http://localhost:8081/subjects/adjust.event-value/versions
 
 register-connector:
 	curl -X POST http://localhost:8083/connectors \
 		-H "Content-Type: application/json" \
-		-d '{"name": "streaming-connector", "config": {"connector.class": "io.debezium.connector.postgresql.PostgresConnector", "database.hostname": "postgres", "database.port": "5432", "database.user": "postgres", "database.password": "postgres", "database.dbname": "postgres", "database.server.name": "adjust-dbserver", "slot.name": "debezium", "plugin.name": "pgoutput", "table.include.list": "adjust.event"}}'
+		-d '{"name": "streaming-connector", "config": {"connector.class": "io.debezium.connector.postgresql.PostgresConnector", "database.hostname": "postgres", "database.port": "5432", "database.user": "postgres", "database.password": "postgres", "database.dbname": "postgres", "database.server.name": "adjust-dbserver", "slot.name": "debezium", "plugin.name": "pgoutput", "table.include.list": "adjust.event", "value.converter": "io.confluent.connect.avro.AvroConverter", "value.converter.schema.registry.url": "http://schema-registry:8081", "value.converter.schemas.enable": "true", "value.subject.name.strategy": "io.confluent.kafka.connect.avro.AvroValueSubjectNameStrategy", "key.converter": "org.apache.kafka.connect.storage.StringConverter", "transforms": "unwrap", "transforms.unwrap.type": "io.debezium.transforms.ExtractNewRecordState"}}'
 
 simulator-up:
 	docker compose up -d simulator
