@@ -268,8 +268,8 @@ services:
     volumes:
       - ./minio-volumes:/data
     environment:
-      - MINIO_ROOT_USER=admin
-      - MINIO_ROOT_PASSWORD=minio_password
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID}
+      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY}
     healthcheck:
       test: ["CMD", "mc", "ready", "local"]
       interval: 5s
@@ -284,7 +284,7 @@ services:
     entrypoint: sh
     command: >
       -c "
-      mc alias set local http://minio:9000 admin minio_password &&
+      mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} &&
       mc mb -p local/lakehouse &&
       mc mb -p local/data
       "

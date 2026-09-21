@@ -15,7 +15,9 @@ CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 FROM apache/spark:4.0.0-scala2.13-java17-python3-ubuntu AS spark
 
 USER root
-    
+
+RUN pip install pyyaml
+
 RUN cd /opt/spark/jars && \
     curl -fL -O https://repo1.maven.org/maven2/org/apache/iceberg/iceberg-spark-runtime-4.0_2.13/1.11.0/iceberg-spark-runtime-4.0_2.13-1.11.0.jar && \
     curl -fL -O https://repo1.maven.org/maven2/org/apache/spark/spark-sql-kafka-0-10_2.13/4.0.0/spark-sql-kafka-0-10_2.13-4.0.0.jar && \
