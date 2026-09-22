@@ -30,7 +30,7 @@ simulator-up:
 	docker compose up -d simulator
 
 minio-up:
-	docker compose up -d minio minio-init
+	docker compose up -d minio minio-init tooling-db iceberg-rest
 
 spark-up:
 	docker compose up -d spark-master spark-worker-1 spark-worker-2
@@ -43,8 +43,11 @@ spark-up:
 		--master spark://spark-master:7077 \
 		/app/spark_builder.py
 
+trino-up:
+	docker compose up -d trino
+
 metabase-up:
-	docker compose up -d metabase-db metabase
+	docker compose up -d metabase
 	
 down:
 	docker compose down

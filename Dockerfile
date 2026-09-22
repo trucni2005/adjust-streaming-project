@@ -32,6 +32,3 @@ RUN cd /opt/spark/jars && \
     done
 
 COPY spark /app
-
-# ---- metabase-db ----
-FROM 

@@ -312,10 +312,10 @@ services:
         condition: service_healthy
     networks:
       - kafka-net
-  
-  metabase-db:
+
+  tooling-db:
     image: postgres:16
-    container_name: metabase-db
+    container_name: tooling-db
     ports:
       - "5435:5435"
     environment:
@@ -324,7 +324,23 @@ services:
       POSTGRES_PASSWORD: admin
       PGPORT: 5435
     volumes:
-      - ./metabase_db_data:/var/lib/postgresql/data
+      - ./tooling-db-volumes:/var/lib/postgresql/data
+      - ./ddl/tooling/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - kafka-net
+  
+  iceberg-rest:
+    image: tabulario/iceberg-rest:latest
+    container_name: iceberg-rest
+    ports:
+      - "8181:8181"
+    environment:
+      - CATALOG_WAREHOUSE=s3://lakehouse/${ENV}
+      - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    depends_on:
+      - minio
     networks:
       - kafka-net
 
@@ -337,21 +353,26 @@ services:
     environment:
       MB_DB_TYPE: postgres
       MB_DB_DBNAME: metabase
-      MB_DB_HOST: metabase-db
+      MB_DB_HOST: tooling-db
       MB_DB_PORT: 5435
       MB_DB_USER: admin
       MB_DB_PASS: admin
-      MB_PLUGINS_DIR: /tmp/metabase_plugins 
+      MB_PLUGINS_DIR: /tmp/metabase_plugins
     depends_on:
-      - metabase-db
+      - tooling-db
     networks:
       - kafka-net
   
   trino:
     image: trinodb/trino:latest
     container_name: trino
+    depends_on:
+      - iceberg-rest
     ports:
       - "8050:8050"
+    environment:
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
     volumes:
       - ./trino/catalog:/etc/trino/catalog
       - ./trino/etc/config.properties:/etc/trino/config.properties
