@@ -5,7 +5,7 @@ import yaml
 from pyspark.sql import SparkSession
 
 CONFIG_JOBS = [
-    'bronze.sink_adjust_event_to_bronze',
+    'bronze.sink_adjust_event_to_bronze'
 ]
 
 

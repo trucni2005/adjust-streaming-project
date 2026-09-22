@@ -6,3 +6,6 @@ spark/data/
 CLAUDE.md
 .claude
 lakehouse/
+.spark-jars/
+.venv-notebook/
+.ipynb_checkpoints/

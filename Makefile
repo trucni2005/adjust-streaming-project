@@ -31,7 +31,8 @@ simulator-up:
 
 minio-up:
 	docker compose up -d minio minio-init
-	sleep 5
+
+spark-up:
 	docker compose up -d spark-master spark-worker-1 spark-worker-2
 	docker compose exec \
 		-e ENV=$(ENV) \
