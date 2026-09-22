@@ -312,3 +312,48 @@ services:
         condition: service_healthy
     networks:
       - kafka-net
+  
+  metabase-db:
+    image: postgres:16
+    container_name: metabase-db
+    ports:
+      - "5435:5435"
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      PGPORT: 5435
+    volumes:
+      - ./metabase_db_data:/var/lib/postgresql/data
+    networks:
+      - kafka-net
+
+  # Metabase Service
+  metabase:
+    image: metabase/metabase:latest
+    container_name: metabase
+    ports:
+      - "3000:3000"
+    environment:
+      MB_DB_TYPE: postgres
+      MB_DB_DBNAME: metabase
+      MB_DB_HOST: metabase-db
+      MB_DB_PORT: 5435
+      MB_DB_USER: admin
+      MB_DB_PASS: admin
+      MB_PLUGINS_DIR: /tmp/metabase_plugins 
+    depends_on:
+      - metabase-db
+    networks:
+      - kafka-net
+  
+  trino:
+    image: trinodb/trino:latest
+    container_name: trino
+    ports:
+      - "8050:8050"
+    volumes:
+      - ./trino/catalog:/etc/trino/catalog
+      - ./trino/etc/config.properties:/etc/trino/config.properties
+    networks:
+      - kafka-net

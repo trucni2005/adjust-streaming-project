@@ -43,6 +43,9 @@ spark-up:
 		--master spark://spark-master:7077 \
 		/app/spark_builder.py
 
+metabase-up:
+	docker compose up -d metabase-db metabase
+	
 down:
 	docker compose down
 
