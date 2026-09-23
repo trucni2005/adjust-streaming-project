@@ -9,19 +9,32 @@ CONFIG_JOBS = [
 ]
 
 
-def create_spark_session(app_name: str, iceberg_catalog: str, iceberg_warehouse: str) -> SparkSession:
+def create_spark_session(app_name: str, catalog_name: str = "iceberg") -> SparkSession:
+    # Lấy thông tin cấu hình từ biến môi trường (hoặc dùng giá trị mặc định)
+    minio_endpoint = os.getenv("S3_ENDPOINT")
+    rest_uri = os.getenv("ICEBERG_REST_URI")
+    aws_access_key = os.getenv("AWS_ACCESS_KEY_ID")
+    aws_secret_key = os.getenv("AWS_SECRET_ACCESS_KEY")
+    aws_region = os.getenv("AWS_REGION", "us-east-1")
+
     return SparkSession.builder \
         .appName(app_name) \
         .config("spark.serializer", "org.apache.spark.serializer.KryoSerializer") \
+        .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
         .config("spark.driver.extraClassPath", "/opt/spark/jars/*") \
         .config("spark.executor.extraClassPath", "/opt/spark/jars/*") \
-        .config("spark.sql.extensions", "org.apache.iceberg.spark.extensions.IcebergSparkSessionExtensions") \
-        .config(f"spark.sql.catalog.{iceberg_catalog}", "org.apache.iceberg.spark.SparkCatalog") \
-        .config(f"spark.sql.catalog.{iceberg_catalog}.type", "hadoop") \
-        .config(f"spark.sql.catalog.{iceberg_catalog}.warehouse", iceberg_warehouse) \
-        .config("spark.hadoop.fs.s3a.endpoint", os.getenv("S3_ENDPOINT", "http://minio:9000")) \
-        .config("spark.hadoop.fs.s3a.access.key", os.getenv("AWS_ACCESS_KEY_ID")) \
-        .config("spark.hadoop.fs.s3a.secret.key", os.getenv("AWS_SECRET_ACCESS_KEY")) \
+        .config(f"spark.sql.catalog.{catalog_name}", "org.apache.iceberg.spark.SparkCatalog") \
+        .config(f"spark.sql.catalog.{catalog_name}.type", "rest") \
+        .config(f"spark.sql.catalog.{catalog_name}.uri", rest_uri) \
+        .config(f"spark.sql.catalog.{catalog_name}.io-impl", "org.apache.iceberg.aws.s3.S3FileIO") \
+        .config(f"spark.sql.catalog.{catalog_name}.s3.endpoint", minio_endpoint) \
+        .config(f"spark.sql.catalog.{catalog_name}.s3.path-style-access", "true") \
+        .config(f"spark.sql.catalog.{catalog_name}.s3.access-key-id", aws_access_key) \
+        .config(f"spark.sql.catalog.{catalog_name}.s3.secret-access-key", aws_secret_key) \
+        .config(f"spark.sql.catalog.{catalog_name}.client.region", aws_region) \
+        .config("spark.hadoop.fs.s3a.endpoint", minio_endpoint) \
+        .config("spark.hadoop.fs.s3a.access.key", aws_access_key) \
+        .config("spark.hadoop.fs.s3a.secret.key", aws_secret_key) \
         .config("spark.hadoop.fs.s3a.path.style.access", "true") \
         .config("spark.hadoop.fs.s3a.connection.ssl.enabled", "false") \
         .config("spark.hadoop.fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider") \
@@ -39,9 +52,8 @@ def main():
     env = os.getenv("ENV", "dev")
     kafka_bootstrap_servers = os.getenv("KAFKA_BOOTSTRAP_SERVERS", "kafka1:9092,kafka2:9092,kafka3:9092")
     iceberg_catalog = os.getenv("ICEBERG_CATALOG", "catalog")
-    iceberg_warehouse = os.getenv("ICEBERG_WAREHOUSE", f"s3a://lakehouse/{env}")
 
-    spark = create_spark_session("StreamingJobs", iceberg_catalog, iceberg_warehouse)
+    spark = create_spark_session("StreamingJobs", iceberg_catalog)
 
     for job_key in CONFIG_JOBS:
         layer, job = job_key.split(".", 1)
@@ -49,7 +61,6 @@ def main():
         module = importlib.import_module(f"{layer}.{config['source']}")
         config["kafka_bootstrap_servers"] = kafka_bootstrap_servers
         config["iceberg_catalog"] = iceberg_catalog
-        config["iceberg_warehouse"] = iceberg_warehouse
         config["iceberg_table"] = f"{iceberg_catalog}.{layer}.{config['table']}"
         config["checkpoint_location"] = os.getenv(
             "CHECKPOINT_LOCATION", f"s3a://data/checkpoints/{env}/{layer}/{job}"

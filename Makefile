@@ -30,7 +30,7 @@ simulator-up:
 	docker compose up -d simulator
 
 minio-up:
-	docker compose up -d minio minio-init tooling-db iceberg-rest
+	docker compose up -d minio minio-init iceberg-rest
 
 spark-up:
 	docker compose up -d spark-master spark-worker-1 spark-worker-2
@@ -39,6 +39,8 @@ spark-up:
 		-e AWS_ACCESS_KEY_ID=$(AWS_ACCESS_KEY_ID) \
 		-e AWS_SECRET_ACCESS_KEY=$(AWS_SECRET_ACCESS_KEY) \
 		-e S3_ENDPOINT=$(S3_ENDPOINT) \
+		-e ICEBERG_REST_URI=$(ICEBERG_REST_URI) \
+		-e AWS_REGION=$(AWS_REGION) \
 		spark-master /opt/spark/bin/spark-submit \
 		--master spark://spark-master:7077 \
 		/app/spark_builder.py
@@ -47,7 +49,7 @@ trino-up:
 	docker compose up -d trino
 
 metabase-up:
-	docker compose up -d metabase
+	docker compose up -d tooling-db metabase
 	
 down:
 	docker compose down
