@@ -1,2 +1,5 @@
 [tool.pytest.ini_options]
 pythonpath = ["simulator"]
+markers = [
+    "integration: cần stack docker đang chạy (vd: make postgres-up), tự skip nếu không kết nối được",
+]

@@ -1,0 +1,94 @@
+services:
+  spark-master:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: spark
+    container_name: spark-master
+    hostname: spark-master
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.master.Master
+    networks:
+      - kafka-net
+    ports:
+      - "7070:8080"
+      - "7077:7077"
+      - "4040:4040"
+    environment:
+      HOME: /tmp
+      KAFKA_CONNECTOR_PACKAGE: org.apache.spark:spark-sql-kafka-0-10_2.13:4.0.0
+    volumes:
+      - ./spark:/app
+
+  spark-worker-1:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: spark
+    hostname: spark-worker-1
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8091:8091"
+    networks:
+      - kafka-net
+    environment:
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_WEBUI_PORT: 8091
+      SPARK_PUBLIC_DNS: localhost
+    volumes:
+      - ./spark:/app
+
+  spark-worker-2:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: spark
+    hostname: spark-worker-2
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.worker.Worker
+      spark://spark-master:7077
+    depends_on:
+      - spark-master
+    ports:
+      - "8092:8092"
+    networks:
+      - kafka-net
+    environment:
+      SPARK_WORKER_CORES: 1
+      SPARK_WORKER_MEMORY: 1g
+      SPARK_WORKER_WEBUI_PORT: 8092
+      SPARK_PUBLIC_DNS: localhost
+    volumes:
+      - ./spark:/app
+
+  spark-history-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: spark
+    container_name: spark-history-server
+    hostname: spark-history-server
+    command: >
+      /opt/spark/bin/spark-class
+      org.apache.spark.deploy.history.HistoryServer
+    environment:
+      SPARK_HISTORY_OPTS: >-
+        -Dspark.history.fs.logDirectory=/data/spark-events
+    ports:
+      - "18080:18080"
+    networks:
+      - kafka-net
+    volumes:
+      - ./spark-volumes/data:/data
+
+networks:
+  kafka-net:
+    driver: bridge

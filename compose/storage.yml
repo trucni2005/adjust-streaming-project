@@ -1,0 +1,64 @@
+services:
+  minio:
+    image: quay.io/minio/minio:RELEASE.2024-12-13T22-19-12Z
+    ports:
+      - '9000:9000'
+      - '9001:9001'
+    volumes:
+      - ./minio-volumes:/data
+    environment:
+      - MINIO_ROOT_USER=${AWS_ACCESS_KEY_ID}
+      - MINIO_ROOT_PASSWORD=${AWS_SECRET_ACCESS_KEY}
+    healthcheck:
+      test: ["CMD", "mc", "ready", "local"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: server --console-address ":9001" /data
+    networks:
+      - kafka-net
+
+  minio-init:
+    image: quay.io/minio/mc:latest
+    entrypoint: sh
+    command: >
+      -c "
+      mc alias set local http://minio:9000 ${AWS_ACCESS_KEY_ID} ${AWS_SECRET_ACCESS_KEY} &&
+      mc mb -p local/lakehouse &&
+      mc mb -p local/data
+      "
+    depends_on:
+      minio:
+        condition: service_healthy
+    networks:
+      - kafka-net
+
+  iceberg-rest:
+    image: tabulario/iceberg-rest:latest
+    container_name: iceberg-rest
+    ports:
+      - "8181:8181"
+    environment:
+      # Cấu hình Catalog JDBC kết nối sang tooling-db
+      - CATALOG_URI=jdbc:postgresql://tooling-db:5435/metabase
+      - CATALOG_JDBC_USER=admin
+      - CATALOG_JDBC_PASSWORD=admin
+      
+      # Cấu hình Storage
+      - CATALOG_WAREHOUSE=s3://lakehouse/${ENV}
+      - CATALOG_IO__IMPL=org.apache.iceberg.aws.s3.S3FileIO
+      - CATALOG_S3_ENDPOINT=http://minio:9000
+      - CATALOG_S3_PATH__STYLE__ACCESS=true
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - AWS_REGION=${AWS_REGION}
+      - AWS_DEFAULT_REGION=${AWS_REGION}
+    depends_on:
+      - minio
+      - tooling-db
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge

@@ -1,0 +1,218 @@
+x-kafka-env: &kafka-env
+  KAFKA_PROCESS_ROLES: 'broker,controller'
+  # Vote Controller
+  KAFKA_CONTROLLER_QUORUM_VOTERS: '1@kafka1:9093,2@kafka2:9093,3@kafka3:9093'
+  KAFKA_CONTROLLER_LISTENER_NAMES: 'CONTROLLER'
+  # Chỉ có listener INTERNAL cho client trong kafka-net, không publish port nào ra host:
+  # mọi client (Spark, kconnect, schema-registry, kafka-ui) đều chạy trong Docker.
+  KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: 'CONTROLLER:PLAINTEXT,INTERNAL:PLAINTEXT'
+  KAFKA_INTER_BROKER_LISTENER_NAME: 'INTERNAL'
+  CLUSTER_ID: '0gDt4nK2qFB0RwIyKQpS7Kl5rglxiRyEmFwvGZP3ug'
+  # 3 replication mặc định cho mỗi topic thông thường
+  KAFKA_DEFAULT_REPLICATION_FACTOR: 3
+  # từ 2 replication xác nhận có bản sao thì mới cho đọc/ghi -> nếu ko thì trả lỗi
+  KAFKA_MIN_INSYNC_REPLICAS: 2
+  # 3 replication cho topic nội bộ __consumer_offsets và __transaction_state
+  KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 3
+  KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 2
+  # Không cho replica out-of-sync lên làm leader (tránh mất dữ liệu đã ack)
+  KAFKA_UNCLEAN_LEADER_ELECTION_ENABLE: 'false'
+  # Topic phải được tạo chủ động (Debezium tạo qua topic.creation.* trong connector config)
+  KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'false'
+  KAFKA_NUM_PARTITIONS: 4
+  # Giữ 7 ngày: Spark bronze dùng failOnDataLoss=true, nên retention phải dài hơn
+  # thời gian tối đa job có thể dừng (sự cố, deploy) để resume từ checkpoint.
+  KAFKA_LOG_RETENTION_HOURS: 168
+  # Chặn thêm theo dung lượng mỗi partition (10GB) phòng khi throughput tăng đột biến
+  KAFKA_LOG_RETENTION_BYTES: 10737418240
+  KAFKA_CONTROLLER_QUORUM_ELECTION_TIMEOUT_MS: 5000
+  KAFKA_CONTROLLER_QUORUM_FETCH_TIMEOUT_MS: 10000
+  KAFKA_HEAP_OPTS: '-Xms1g -Xmx1g'
+
+x-kafka-broker: &kafka-broker
+  image: confluentinc/cp-kafka:7.8.0
+  restart: unless-stopped
+  healthcheck:
+    test: ["CMD-SHELL", "kafka-broker-api-versions --bootstrap-server localhost:9092 > /dev/null 2>&1"]
+    interval: 15s
+    timeout: 10s
+    retries: 10
+    start_period: 30s
+  deploy:
+    resources:
+      limits:
+        cpus: "2"
+        memory: 2g
+  logging: &default-logging
+    driver: json-file
+    options:
+      max-size: "50m"
+      max-file: "5"
+  # Cho broker chuyển leader và flush xong trước khi bị SIGKILL
+  stop_grace_period: 60s
+  networks:
+    - kafka-net
+
+x-kafka-healthy: &kafka-healthy
+  kafka1:
+    condition: service_healthy
+  kafka2:
+    condition: service_healthy
+  kafka3:
+    condition: service_healthy
+
+services:
+  kafka1:
+    <<: *kafka-broker
+    hostname: kafka1
+    container_name: kafka1
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 1
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka1:9092'
+    volumes:
+      - ./kafka-cluster-volumes/kafka1/data:/var/lib/kafka/data
+
+  kafka2:
+    <<: *kafka-broker
+    hostname: kafka2
+    container_name: kafka2
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 2
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka2:9092'
+    volumes:
+      - ./kafka-cluster-volumes/kafka2/data:/var/lib/kafka/data
+
+  kafka3:
+    <<: *kafka-broker
+    hostname: kafka3
+    container_name: kafka3
+    environment:
+      <<: *kafka-env
+      KAFKA_NODE_ID: 3
+      KAFKA_LISTENERS: 'INTERNAL://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093'
+      KAFKA_ADVERTISED_LISTENERS: 'INTERNAL://kafka3:9092'
+    volumes:
+      - ./kafka-cluster-volumes/kafka3/data:/var/lib/kafka/data
+
+  schema-registry:
+    image: confluentinc/cp-schema-registry:7.8.0
+    hostname: schema-registry
+    container_name: schema-registry
+    restart: unless-stopped
+    depends_on: *kafka-healthy
+    ports:
+      - "127.0.0.1:8081:8081"
+    environment:
+      SCHEMA_REGISTRY_HOST_NAME: schema-registry
+      SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+      SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      SCHEMA_REGISTRY_KAFKASTORE_TOPIC_REPLICATION_FACTOR: 3
+      SCHEMA_REGISTRY_HEAP_OPTS: '-Xms256m -Xmx512m'
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8081/subjects > /dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1g
+    logging: *default-logging
+    networks:
+      - kafka-net
+
+  kconnect:
+    image: debezium/connect:1.9
+    container_name: kconnect
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8083:8083"
+    environment:
+      GROUP_ID: kconnect-cluster
+      CONFIG_STORAGE_TOPIC: connect_configs
+      CONFIG_STORAGE_REPLICATION_FACTOR: 3
+      OFFSET_STORAGE_TOPIC: connect_offsets
+      OFFSET_STORAGE_REPLICATION_FACTOR: 3
+      STATUS_STORAGE_TOPIC: connect_statuses
+      STATUS_STORAGE_REPLICATION_FACTOR: 3
+      BOOTSTRAP_SERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      HEAP_OPTS: '-Xms512m -Xmx1g'
+      # Connector đọc password từ file: "${file:/run/secrets/debezium.properties:password}",
+      # nên topic connect_configs chỉ lưu placeholder, không lưu password thật.
+      CONNECT_CONFIG_PROVIDERS: file
+      CONNECT_CONFIG_PROVIDERS_FILE_CLASS: org.apache.kafka.common.config.provider.FileConfigProvider
+    secrets:
+      - source: debezium_properties
+        target: debezium.properties
+    depends_on:
+      <<: *kafka-healthy
+      schema-registry:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS http://localhost:8083/ > /dev/null"]
+      interval: 15s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: "2"
+          memory: 2g
+    logging: *default-logging
+    # Service duy nhất nối backend-net (đọc WAL Postgres) với kafka-net (ghi Kafka).
+    networks:
+      - backend-net
+      - kafka-net
+
+  kafka-ui:
+    # provectuslabs/kafka-ui đã ngừng phát triển; kafbat là fork chính thức tiếp tục duy trì.
+    image: ghcr.io/kafbat/kafka-ui:v1.2.0
+    container_name: kafka-ui
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8086:8080"
+    environment:
+      KAFKA_CLUSTERS_0_NAME: local
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka1:9092,kafka2:9092,kafka3:9092
+      KAFKA_CLUSTERS_0_SCHEMAREGISTRY: http://schema-registry:8081
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_NAME: debezium
+      KAFKA_CLUSTERS_0_KAFKACONNECT_0_ADDRESS: http://kconnect:8083
+      KAFKA_CLUSTERS_0_PROPERTIES_DEFAULT_API_TIMEOUT_MS: 120000
+      KAFKA_CLUSTERS_0_PROPERTIES_REQUEST_TIMEOUT_MS: 120000
+      AUTH_TYPE: LOGIN_FORM
+      SPRING_SECURITY_USER_NAME: ${KAFKA_UI_USER:?KAFKA_UI_USER must be set}
+      SPRING_SECURITY_USER_PASSWORD: ${KAFKA_UI_PASSWORD:?KAFKA_UI_PASSWORD must be set}
+    depends_on:
+      <<: *kafka-healthy
+      kconnect:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: "1"
+          memory: 1g
+    logging: *default-logging
+    networks:
+      - kafka-net
+
+secrets:
+  debezium_properties:
+    file: ./secrets/debezium.properties
+
+networks:
+  kafka-net:
+    driver: bridge
+  # Vùng mạng của backend (OLTP): chỉ postgres, simulator (đóng vai backend app)
+  # và kconnect (cầu nối CDC duy nhất sang data platform) được gắn vào.
+  backend-net:
+    driver: bridge

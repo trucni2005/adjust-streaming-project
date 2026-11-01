@@ -1,0 +1,28 @@
+services:
+  simulator:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: simulator
+    container_name: simulator
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./simulator:/app
+    environment:
+      - PG_HOST=${PG_HOST}
+      - PG_PORT=5432
+      - PG_DATABASE=${PG_DATABASE}
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+    depends_on:
+      postgres:
+        condition: service_healthy
+    networks:
+      - backend-net
+
+networks:
+  # Vùng mạng của backend (OLTP): chỉ postgres, simulator (đóng vai backend app)
+  # và kconnect (cầu nối CDC duy nhất sang data platform) được gắn vào.
+  backend-net:
+    driver: bridge

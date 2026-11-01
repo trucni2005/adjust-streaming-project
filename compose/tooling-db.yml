@@ -1,0 +1,20 @@
+services:
+  tooling-db:
+    image: postgres:16
+    container_name: tooling-db
+    ports:
+      - "5435:5435"
+    environment:
+      POSTGRES_DB: metabase
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: admin
+      PGPORT: 5435
+    volumes:
+      - ./tooling-db-volumes:/var/lib/postgresql/data
+      - ./ddl/tooling/init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - kafka-net
+
+networks:
+  kafka-net:
+    driver: bridge

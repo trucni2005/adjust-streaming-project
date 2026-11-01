@@ -9,3 +9,5 @@ lakehouse/
 .spark-jars/
 .venv-notebook/
 .ipynb_checkpoints/
+secrets/
+.venv/
