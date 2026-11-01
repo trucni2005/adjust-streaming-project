@@ -1,0 +1,50 @@
+# Data platform: Kafka/CDC, MinIO + Iceberg, Spark, Trino/Metabase. Chỉ chạy khi
+# đổi file thuộc data platform hoặc file dùng chung (Dockerfile, compose entrypoint, .env.example).
+name: data-platform
+
+on:
+  push:
+    branches: [main]
+    paths: &data-paths
+      - compose/kafka.yml
+      - compose/storage.yml
+      - compose/spark.yml
+      - compose/bi.yml
+      - compose/tooling-db.yml
+      - ddl/tooling/**
+      - schema/**
+      - spark/**
+      - trino/**
+      - jars.txt
+      - Dockerfile
+      - requirements.txt
+      - docker-compose.yml
+      - .env.example
+      - Makefile
+      - .github/workflows/data-platform.yml
+  pull_request:
+    branches: [main]
+    paths: *data-paths
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - run: pip install -r requirements.txt
+      - run: ruff check spark
+      - run: jq empty schema/adjust-event.avsc
+
+  docker-build:
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: docker build --target spark -t spark .
+      # .env bị gitignore nên runner không có; dùng giá trị mẫu chỉ để validate compose.
+      - run: cp .env.example .env
+      - run: docker compose config -q

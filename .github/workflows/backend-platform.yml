@@ -1,10 +1,28 @@
-name: CI
+# Backend (OLTP): postgres + simulator. Chỉ chạy khi đổi file thuộc backend
+# hoặc file dùng chung (Dockerfile, requirements, compose entrypoint, .env.example).
+name: backend-platform
 
 on:
   push:
     branches: [main]
+    paths: &backend-paths
+      - compose/postgres.yml
+      - compose/simulator.yml
+      - config/postgres/**
+      - ddl/postgresql/**
+      - simulator/**
+      - tests/postgres/**
+      - tests/simulator/**
+      - Dockerfile
+      - requirements.txt
+      - pyproject.toml
+      - docker-compose.yml
+      - .env.example
+      - Makefile
+      - .github/workflows/backend-platform.yml
   pull_request:
     branches: [main]
+    paths: *backend-paths
 
 jobs:
   lint:
@@ -14,8 +32,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+          cache: "pip"
       - run: pip install -r requirements.txt
-  
+      - run: ruff check simulator tests/postgres tests/simulator
+
   test:
     needs: lint
     runs-on: ubuntu-latest
@@ -26,8 +46,9 @@ jobs:
           python-version: "3.11"
           cache: "pip"
       - run: pip install -r requirements.txt
-      - run: pytest tests/ -v
-  
+      # tests/postgres tự skip khi không có DB đang chạy.
+      - run: pytest tests/simulator tests/postgres -v -rs
+
   docker-build:
     needs: lint
     runs-on: ubuntu-latest
@@ -37,5 +58,3 @@ jobs:
       # .env bị gitignore nên runner không có; dùng giá trị mẫu chỉ để validate compose.
       - run: cp .env.example .env
       - run: docker compose config -q
-
-  
