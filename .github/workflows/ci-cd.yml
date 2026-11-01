@@ -34,6 +34,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - run: docker build --target simulator -t simulator .
+      # .env bị gitignore nên runner không có; dùng giá trị mẫu chỉ để validate compose.
+      - run: cp .env.example .env
       - run: docker compose config -q
 
   
